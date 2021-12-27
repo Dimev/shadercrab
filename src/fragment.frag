@@ -7,8 +7,10 @@ uniform vec3 iResolution;
 uniform vec4 iMouse;
 uniform float iTime;
 
-// TODO: insert shadertoy source here
+// shadertoy source is inserted here
+{}
 
-void main() {
-	_internal_fragcol = vec4(0.5, 0.5, 0.5, 1.0);
-}
+// double braces to escape rust's formatter
+void main() {{
+	_internal_fragcol = vec4(0.2, 0.2, 0.2, 1.0);
+}}

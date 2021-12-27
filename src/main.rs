@@ -2,21 +2,33 @@ use glium::{glutin, Surface};
 
 // load a program from a file path
 fn load_program(display: &glium::Display, path: &str) -> Option<glium::program::Program> {
-    // load build-in shaders
+    
+	// load the file
+	let shader = match std::fs::read_to_string(path) {
+		Ok(x) => x,
+		Err(reason) => {
+			println!("Failed to load shader: {:?}", reason);
+			return None;
+		},
+	};
+	
+	// load build-in shaders
     let vertex_shader = include_str!("vertex.vert");
-    let fragment_shader = include_str!("fragment.frag");
 
 	// format the shader so it can go from shadertoy -> opengl
+	let formatted_shader = format!(include_str!("fragment.frag"), shader);
 
     // make the program to run the shader
     // TODO ERROR REPORTING
-    match glium::program::Program::from_source(display, vertex_shader, fragment_shader, None) {
+    match glium::program::Program::from_source(display, vertex_shader, &formatted_shader, None) {
         Ok(x) => Some(x),
         Err(reason) => { println!("Failed to compile shader: {:?}", reason); None },
     }
 }
 
 fn main() {
+	// figure out what shader to load
+	// start up the event loop
     let event_loop = glutin::event_loop::EventLoop::new();
     let wb = glutin::window::WindowBuilder::new();
     let cb = glutin::ContextBuilder::new();
@@ -96,15 +108,26 @@ fn main() {
 
     // and run the event loop
     event_loop.run(move |event, _, control_flow| {
-        // by default, wait until the next frame
-        *control_flow = glutin::event_loop::ControlFlow::WaitUntil(
-            std::time::Instant::now() + std::time::Duration::from_secs_f32(1.0 / 60.0),
-        );
         // TODO reload program if the file changed
         // close if needed
         match event {
-            //			matc
-            //			glutin::event::WindowEvent::CloseRequested => *control_flow = glutin::event_loop::ControlFlow::Exit,
+			glutin::event::Event::WindowEvent { event, ..} => match event {
+				// close if requested
+				glutin::event::WindowEvent::CloseRequested => *control_flow = glutin::event_loop::ControlFlow::Exit,
+				_ => (),
+			}
+			glutin::event::Event::NewEvents(glutin::event::StartCause::ResumeTimeReached {..}) | glutin::event::Event::NewEvents(glutin::event::StartCause::Init)  => {
+				// check if the shader was reloaded
+
+				// we're reached the end of the frame, redraw
+				draw(program.as_ref(), 0.0, (0, 0), (false, false));
+				// and request a redraw
+				*control_flow = glutin::event_loop::ControlFlow::WaitUntil(
+					std::time::Instant::now() + std::time::Duration::from_secs_f32(1.0 / 60.0),
+				);
+			}
+			// if R was pressed, reload the shader and redraw
+			// TODO 
             _ => (),
         }
     });
