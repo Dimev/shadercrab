@@ -8,9 +8,17 @@ uniform vec4 iMouse;
 uniform float iTime;
 
 // shadertoy source is inserted here
+// this is just rust's format string
 {}
 
 // double braces to escape rust's formatter
 void main() {{
-	_internal_fragcol = vec4(0.2, 0.2, 0.2, 1.0);
+
+	// shadertoy has mainImage, which takes in the fragcolor to output, and the UV (frag coordinate) multiplied by the resolution
+	// we have these in the file, so we can just grab the function and render it
+	mainImage(_internal_fragcol, _internal_vpos * iResolution.xy);
+
+	// we'll have to do some tonemapping too
+	// TODO
+
 }}
