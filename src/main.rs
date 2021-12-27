@@ -12,7 +12,7 @@ fn load_program(display: &glium::Display, path: &str) -> Option<glium::program::
     // TODO ERROR REPORTING
     match glium::program::Program::from_source(display, vertex_shader, fragment_shader, None) {
         Ok(x) => Some(x),
-        _ => None,
+        Err(reason) => { println!("Failed to compile shader: {:?}", reason); None },
     }
 }
 
