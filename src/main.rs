@@ -186,6 +186,17 @@ fn main() {
                 WindowEvent::CloseRequested => {
                     *control_flow = glutin::event_loop::ControlFlow::Exit
                 }
+				// resized
+				WindowEvent::Resized(s) => {
+					// rename the window to include the size
+					display.gl_window().window().set_title(&format!(
+						"Shadercrab {} - {}x{} - {}",
+						env!("CARGO_PKG_VERSION"),
+						s.width,
+						s.height,
+						file_path
+					));	
+				},
                 // check focus
                 WindowEvent::Focused(f) => focus = f,
                 // check mouse position
