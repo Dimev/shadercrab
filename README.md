@@ -9,8 +9,8 @@ From source (Also needs cargo):
 Clone this repo, and run `cargo build --release` to compile the program
 
 ### Usage:
-With cargo:
-`cargo shadercrab "path/to/shader"`
+If installed with cargo and it's in path:
+`shadercrab "path/to/shader"`
 
 From source:
 `cargo run --release -- "path/to/shader"`
