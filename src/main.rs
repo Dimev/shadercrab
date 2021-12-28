@@ -53,29 +53,31 @@ fn main() {
         _ => {
             // no valid arguments, show the help menu
             println!("Shadercrab {}", env!("CARGO_PKG_VERSION"));
-			println!("A simple shadertoy emulator");
-			println!("Usage:");
-			println!("shadercrab [path]");
-			println!("	path: path to the shader file to use");
-			println!("");
-			println!("This opens a window that shows the shader");
-			println!("The shader is reloaded when the file is modified, or the r key is pressed");
-			println!("Any shader errors are printed to the terminal");
-			println!("");
-			println!("Shader format:");
-			println!("Shaders are in glsl, and need the function");
-			println!("	mainImage(out vec4 fragColor, in vec2 fragCoord)");
-			println!("where");
-			println!("	fragColor: output color for the pixel, in sRGB color space");
-			println!("	fragCoord: the pixel coordinate, with bottom left at (0, 0) and top right at (width, height)");
-			println!("	           width and height are the width and height of the window");
-			println!("");
-			println!("The following constants are also defined:");
-			println!("	float iTime: seconds since the shader was loaded");
-			println!("	int iFrame: current frame number");
-			println!("	vec3 iResolution: width, height and aspect ratio (y / x) of the window");
-			println!("	vec4 iMouse: xy: mouse position, changed when dragging with the left mouse button");
-			println!("	             zw: mouse button states (0 is up, 1 is down)");
+            println!("A simple shadertoy emulator");
+            println!("Usage:");
+            println!("shadercrab [path]");
+            println!("	path: path to the shader file to use");
+            println!("");
+            println!("This opens a window that shows the shader");
+            println!("The shader is reloaded when the file is modified, or the r key is pressed");
+            println!("Any shader errors are printed to the terminal");
+            println!("");
+            println!("Shader format:");
+            println!("Shaders are in glsl, and need the function");
+            println!("	mainImage(out vec4 fragColor, in vec2 fragCoord)");
+            println!("where");
+            println!("	fragColor: output color for the pixel, in sRGB color space");
+            println!("	fragCoord: the pixel coordinate, with bottom left at (0, 0) and top right at (width, height)");
+            println!("	           width and height are the width and height of the window");
+            println!("");
+            println!("The following constants are also defined:");
+            println!("	float iTime: seconds since the shader was loaded");
+            println!("	int iFrame: current frame number");
+            println!("	vec3 iResolution: width, height and aspect ratio (y / x) of the window");
+            println!(
+                "	vec4 iMouse: xy: mouse position, changed when dragging with the left mouse button"
+            );
+            println!("	             zw: mouse button states (0 is up, 1 is down)");
             return;
         }
     };
@@ -103,6 +105,13 @@ fn main() {
     ));
     let cb = glutin::ContextBuilder::new().with_vsync(true);
     let display = glium::Display::new(wb, cb, &event_loop).unwrap();
+
+    println!(
+        "GPU: {}\nVendor: {}\nOpenGL version: {}",
+        display.get_opengl_renderer_string(),
+        display.get_opengl_vendor_string(),
+        display.get_opengl_version_string()
+    );
 
     // vertex buffer
     // not that important here as it's just a fullscreen quad
@@ -209,17 +218,17 @@ fn main() {
                 WindowEvent::CloseRequested => {
                     *control_flow = glutin::event_loop::ControlFlow::Exit
                 }
-				// resized
-				WindowEvent::Resized(s) => {
-					// rename the window to include the size
-					display.gl_window().window().set_title(&format!(
-						"Shadercrab {} - {}x{} - {}",
-						env!("CARGO_PKG_VERSION"),
-						s.width,
-						s.height,
-						file_path
-					));	
-				},
+                // resized
+                WindowEvent::Resized(s) => {
+                    // rename the window to include the size
+                    display.gl_window().window().set_title(&format!(
+                        "Shadercrab {} - {}x{} - {}",
+                        env!("CARGO_PKG_VERSION"),
+                        s.width,
+                        s.height,
+                        file_path
+                    ));
+                }
                 // check focus
                 WindowEvent::Focused(f) => focus = f,
                 // check mouse position
@@ -250,11 +259,11 @@ fn main() {
                         println!("Reloaded shader");
                         program = load_program(&display, &file_path);
                         // reset the time as well
-						start_time = std::time::Instant::now();
-						// reset the frame
-						frame = 0;
-						// reset the mouse 
-						mouse_pos = (0, 0);
+                        start_time = std::time::Instant::now();
+                        // reset the frame
+                        frame = 0;
+                        // reset the mouse
+                        mouse_pos = (0, 0);
                     }
                 }
                 _ => (),
@@ -266,15 +275,15 @@ fn main() {
                 if new_time_stamp != time_stamp {
                     // reload if it was
                     println!("Reloaded shader");
-					program = load_program(&display, &file_path);
+                    program = load_program(&display, &file_path);
                     // reset the time as well
                     start_time = std::time::Instant::now();
-					// reset the frame
-					frame = 0;
-					// reset the mouse 
-					mouse_pos = (0, 0);
+                    // reset the frame
+                    frame = 0;
+                    // reset the mouse
+                    mouse_pos = (0, 0);
                     // and prevent continuous reloading
-					time_stamp = new_time_stamp;
+                    time_stamp = new_time_stamp;
                 }
 
                 // increment the frame

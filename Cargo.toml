@@ -6,7 +6,7 @@ description = "A simple single buffer shadertoy emulator"
 repository = "https://github.com/Dimev/shadercrab"
 keywords = ["shader", "shadertoy", "opengl", "glsl", "glium"]
 categories = ["command-line-utilities", "graphics", "rendering"]
-edition = "2021"
+edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
