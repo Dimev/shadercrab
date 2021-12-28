@@ -72,6 +72,7 @@ fn main() {
 			println!("");
 			println!("The following constants are also defined:");
 			println!("	float iTime: seconds since the shader was loaded");
+			println!("	int iFrame: current frame number");
 			println!("	vec3 iResolution: width, height and aspect ratio (y / x) of the window");
 			println!("	vec4 iMouse: xy: mouse position, changed when dragging with the left mouse button");
 			println!("	             zw: mouse button states (0 is up, 1 is down)");
@@ -249,7 +250,11 @@ fn main() {
                         println!("Reloaded shader");
                         program = load_program(&display, &file_path);
                         // reset the time as well
-                        start_time = std::time::Instant::now();
+						start_time = std::time::Instant::now();
+						// reset the frame
+						frame = 0;
+						// reset the mouse 
+						mouse_pos = (0, 0);
                     }
                 }
                 _ => (),
@@ -264,6 +269,10 @@ fn main() {
 					program = load_program(&display, &file_path);
                     // reset the time as well
                     start_time = std::time::Instant::now();
+					// reset the frame
+					frame = 0;
+					// reset the mouse 
+					mouse_pos = (0, 0);
                     // and prevent continuous reloading
 					time_stamp = new_time_stamp;
                 }
