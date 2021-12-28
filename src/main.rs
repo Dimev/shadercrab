@@ -52,7 +52,29 @@ fn main() {
         [_, x] => x.clone(),
         _ => {
             // no valid arguments, show the help menu
-            println!("Invalid arguments");
+            println!("Shadercrab {}", env!("CARGO_PKG_VERSION"));
+			println!("A simple shadertoy emulator");
+			println!("Usage:");
+			println!("shadercrab [path]");
+			println!("	path: path to the shader file to use");
+			println!("");
+			println!("This opens a window that shows the shader");
+			println!("The shader is reloaded when the file is modified, or the r key is pressed");
+			println!("Any shader errors are printed to the terminal");
+			println!("");
+			println!("Shader format:");
+			println!("Shaders are in glsl, and need the function");
+			println!("	mainImage(out vec4 fragColor, in vec2 fragCoord)");
+			println!("where");
+			println!("	fragColor: output color for the pixel, in sRGB color space");
+			println!("	fragCoord: the pixel coordinate, with bottom left at (0, 0) and top right at (width, height)");
+			println!("	           width and height are the width and height of the window");
+			println!("");
+			println!("The following constants are also defined:");
+			println!("	float iTime: seconds since the shader was loaded");
+			println!("	vec3 iResolution: width, height and aspect ratio (y / x) of the window");
+			println!("	vec4 iMouse: xy: mouse position, changed when dragging with the left mouse button");
+			println!("	             zw: mouse button states (0 is up, 1 is down)");
             return;
         }
     };
@@ -258,7 +280,7 @@ fn main() {
                     mouse_pos,
                     mouse_stat,
                 );
-                // and request a redraw
+                // and request a redraw, at 60 fps
                 *control_flow = glutin::event_loop::ControlFlow::WaitUntil(
                     std::time::Instant::now() + std::time::Duration::from_secs_f32(1.0 / 60.0),
                 );
