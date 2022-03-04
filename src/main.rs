@@ -1,62 +1,29 @@
-use glium::{glutin, Surface};
+pub mod drawer;
+
+use glium::glutin;
 use glutin::event::{ElementState, Event, MouseButton, VirtualKeyCode, WindowEvent};
 
-// load a program from a file path
-fn load_program(display: &glium::Display, path: &str) -> Option<glium::program::Program> {
-    // load the file
-    let shader = match std::fs::read_to_string(path) {
-        Ok(x) => x,
-        Err(reason) => {
-            println!("Failed to load shader: {:?}", reason);
-            return None;
-        }
-    };
-
-    // load build-in shaders
-    let vertex_shader = include_str!("vertex.vert");
-
-    // format the shader so it can go from shadertoy -> opengl
-    let formatted_shader = format!(include_str!("fragment.frag"), shader);
-
-    // make the shader input, because from_source does not give the ability to set srgb output
-    let shader_input = glium::program::ProgramCreationInput::SourceCode {
-        vertex_shader,
-        tessellation_control_shader: None,
-        tessellation_evaluation_shader: None,
-        geometry_shader: None,
-        fragment_shader: &formatted_shader,
-        transform_feedback_varyings: None,
-        outputs_srgb: true,
-        uses_point_size: false,
-    };
-
-    // make the program to run the shader
-    // TODO ERROR REPORTING
-    match glium::program::Program::new(display, shader_input) {
-        Ok(x) => Some(x),
-        Err(reason) => {
-            let error = match reason {
-                glium::program::ProgramCreationError::CompilationError(e, _) => e,
-                x => format!("Error: {:?}", x),
-            };
-
-            println!("Failed to compile shader:\n{}", error);
-            None
-        }
-    }
-}
+use crate::drawer::*;
 
 fn main() {
     // figure out what shader to load
-    let file_path: String = match &std::env::args().collect::<Vec<String>>()[..] {
-        [_, x] => x.clone(),
+    let (file_path, render_scale): (String, f32) = match &std::env::args().collect::<Vec<String>>()
+        [..]
+    {
+        [_, x] => (x.clone(), 1.0),
+        [_, x, p, y] if p == "-s" || p == "--scale" => (
+            x.clone(),
+            y.parse::<f32>()
+                .map_or_else(|_| { println!("Could not parse scale as a float"); std::process::exit(0);}, |x| x),
+        ),
         _ => {
             // no valid arguments, show the help menu
             println!("Shadercrab {}", env!("CARGO_PKG_VERSION"));
             println!("A simple shadertoy emulator");
             println!("Usage:");
-            println!("shadercrab [path]");
+            println!("shadercrab [path] [-s|--scale render scale]");
             println!("	path: path to the shader file to use");
+            println!("  render scale: what resolution to render at compared to window resolution");
             println!("");
             println!("This opens a window that shows the shader");
             println!("The shader is reloaded when the file is modified, or the r key is pressed");
@@ -98,11 +65,13 @@ fn main() {
 
     // start up the event loop
     let event_loop = glutin::event_loop::EventLoop::new();
-    let wb = glutin::window::WindowBuilder::new().with_title(format!(
-        "Shadercrab {} - {}",
-        env!("CARGO_PKG_VERSION"),
-        file_path
-    ));
+    let wb = glutin::window::WindowBuilder::new()
+        .with_title(format!(
+            "Shadercrab {} - {}",
+            env!("CARGO_PKG_VERSION"),
+            file_path
+        ))
+        .with_inner_size(glutin::dpi::PhysicalSize::new(800, 450));
     let cb = glutin::ContextBuilder::new().with_vsync(true);
     let display = glium::Display::new(wb, cb, &event_loop).unwrap();
 
@@ -113,77 +82,15 @@ fn main() {
         display.get_opengl_version_string()
     );
 
-    // vertex buffer
-    // not that important here as it's just a fullscreen quad
-    let vertex_buffer = {
-        #[derive(Copy, Clone)]
-        struct Vert {
-            pos: [f32; 2],
-        }
-
-        glium::implement_vertex!(Vert, pos);
-
-        glium::VertexBuffer::new(
-            &display,
-            &[
-                Vert { pos: [-1.0, -1.0] },
-                Vert { pos: [1.0, -1.0] },
-                Vert { pos: [-1.0, 1.0] },
-                Vert { pos: [1.0, 1.0] },
-            ],
-        )
-        .unwrap()
-    };
-
-    let index_buffer = glium::IndexBuffer::new(
-        &display,
-        glium::index::PrimitiveType::TrianglesList,
-        &[0 as u8, 1, 2, 1, 2, 3],
-    )
-    .unwrap();
+    // current screen size
+    let resolution = display.get_framebuffer_dimensions();
 
     // load the program
     // mutable so we can reload later
-    let mut program = load_program(&display, &file_path);
+    let program = load_program(&display, &file_path);
 
-    // draw loop
-    let draw = move |display: &glium::Display,
-                     program: Option<&glium::program::Program>,
-                     time: f32,
-                     frame: i32,
-                     mouse_position: (u32, u32),
-                     mouse_input: (bool, bool)| {
-        // get the image size
-        let resolution = display.get_framebuffer_dimensions();
-
-        // make the uniforms and inputs
-        let uniforms = glium::uniform! {
-            iResolution: [resolution.0 as f32, resolution.1 as f32, resolution.1 as f32 / resolution.0 as f32],
-            iFrame: frame as i32,
-            iTime: time as f32,
-            iMouse: [mouse_position.0 as f32, mouse_position.1 as f32, if mouse_input.0 { 1.0 } else { 0.0 }, if mouse_input.1 { 1.0 } else { 0.0 }]
-        };
-
-        // draw the frame
-        let mut target = display.draw();
-        target.clear_color_srgb(0.0, 0.0, 0.0, 0.0);
-
-        // only draw if the program is valid
-        if let Some(prog) = program {
-            target
-                .draw(
-                    &vertex_buffer,
-                    &index_buffer,
-                    prog,
-                    &uniforms,
-                    &Default::default(),
-                )
-                .unwrap();
-        }
-
-        // and complete drawing
-        target.finish().unwrap();
-    };
+    // the actual drawing manager
+    let mut drawer = Drawer::new(&display, program, resolution.0, resolution.1, render_scale);
 
     // time since program start
     let mut start_time = std::time::Instant::now();
@@ -199,14 +106,7 @@ fn main() {
     let mut focus = false;
 
     // draw once to show it
-    draw(
-        &display,
-        program.as_ref(),
-        0.0,
-        frame,
-        mouse_pos,
-        mouse_stat,
-    );
+    drawer.draw(&display, 0.0, frame, mouse_pos, mouse_stat, render_scale);
 
     // and run the event loop
     event_loop.run(move |event, _, control_flow| {
@@ -224,8 +124,8 @@ fn main() {
                     display.gl_window().window().set_title(&format!(
                         "Shadercrab {} - {}x{} - {}",
                         env!("CARGO_PKG_VERSION"),
-                        s.width,
-                        s.height,
+                        (s.width as f32 * render_scale) as u32,
+                        (s.height as f32 * render_scale) as u32,
                         file_path
                     ));
                 }
@@ -257,7 +157,7 @@ fn main() {
                         && focus
                     {
                         println!("Reloaded shader");
-                        program = load_program(&display, &file_path);
+                        drawer.main_image_program = load_program(&display, &file_path);
                         // reset the time as well
                         start_time = std::time::Instant::now();
                         // reset the frame
@@ -275,7 +175,7 @@ fn main() {
                 if new_time_stamp != time_stamp {
                     // reload if it was
                     println!("Reloaded shader");
-                    program = load_program(&display, &file_path);
+                    drawer.main_image_program = load_program(&display, &file_path);
                     // reset the time as well
                     start_time = std::time::Instant::now();
                     // reset the frame
@@ -290,13 +190,13 @@ fn main() {
                 frame += 1;
 
                 // we're reached the end of the frame, redraw
-                draw(
+                drawer.draw(
                     &display,
-                    program.as_ref(),
                     start_time.elapsed().as_secs_f32(),
                     frame,
                     mouse_pos,
                     mouse_stat,
+                    render_scale,
                 );
                 // and request a redraw, at 60 fps
                 *control_flow = glutin::event_loop::ControlFlow::WaitUntil(
