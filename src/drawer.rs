@@ -1,6 +1,7 @@
 use glium::Surface;
 
-pub fn make_buffers(
+// make the buffers for the renderer
+fn make_buffers(
     display: &glium::Display,
     width: u32,
     height: u32,
@@ -91,6 +92,7 @@ pub fn make_buffers(
     (main_image, buffer_images, backbuffer_images)
 }
 
+// load a shader program
 pub fn load_program(display: &glium::Display, path: &str) -> Option<glium::program::Program> {
     // load the file
     let shader = match std::fs::read_to_string(path) {
@@ -134,6 +136,34 @@ pub fn load_program(display: &glium::Display, path: &str) -> Option<glium::progr
     }
 }
 
+
+// one iChannel and it's needed data
+pub enum Channel {
+    // texture to use for this channel
+    Texture(glium::Texture2d),
+    // buffer index to use
+    Buffer(usize),
+    // or the keyboard texture
+    Keyboard,
+    // or nothing
+    None,
+}
+
+impl Channel {
+	// select a texture for the channel
+    fn get_texture<'a>(
+        &'a self,
+        buffers: &'a [glium::Texture2d; 4],
+        empty: &'a glium::Texture2d,
+    ) -> &'a glium::Texture2d {
+        match self {
+            Channel::Texture(x) => x,
+            &Channel::Buffer(i) => &buffers[i],
+            _ => empty,
+        }
+    }
+}
+
 #[derive(Copy, Clone)]
 struct Vert {
     pos: [f32; 2],
@@ -145,9 +175,11 @@ pub struct Drawer {
     main_image: glium::Texture2d,
     buffer_images: [glium::Texture2d; 4],
     backbuffer_images: [glium::Texture2d; 4],
+    empty: glium::Texture2d,
     main_program: glium::Program,
     pub main_image_program: Option<glium::Program>,
     pub buffer_programs: [Option<glium::Program>; 4],
+    pub channels: [[Channel; 4]; 5],
     vertex_buffer: glium::VertexBuffer<Vert>,
     pub width: u32,
     pub height: u32,
@@ -156,7 +188,6 @@ pub struct Drawer {
 impl Drawer {
     pub fn new(
         display: &glium::Display,
-        main_image_program: Option<glium::Program>,
         width: u32,
         height: u32,
         scale: f32,
@@ -175,6 +206,7 @@ impl Drawer {
             .unwrap()
         };
 
+		// program to copy from the render target to the output
         let main_program = glium::program::Program::new(
             display,
             glium::program::ProgramCreationInput::SourceCode {
@@ -220,18 +252,36 @@ impl Drawer {
         )
         .unwrap();
 
+		// make the buffer images
         let (main_image, buffer_images, backbuffer_images) = make_buffers(
             display,
             (width as f32 * scale) as u32,
             (height as f32 * scale) as u32,
         );
 
+		// empty texture
+        let empty = glium::Texture2d::empty(display, 1, 1).unwrap();
+
+		// TODO KEYBOARD
+
+		// and channels
+		// ugly, but we can't implement copy for this
+        let channels = [
+            [Channel::None, Channel::None, Channel::None, Channel::None],
+            [Channel::None, Channel::None, Channel::None, Channel::None],
+            [Channel::None, Channel::None, Channel::None, Channel::None],
+            [Channel::None, Channel::None, Channel::None, Channel::None],
+            [Channel::None, Channel::None, Channel::None, Channel::None],
+        ];
+
         Self {
             main_image,
             buffer_images,
             backbuffer_images,
+            empty,
+            channels,
             main_program,
-            main_image_program,
+            main_image_program: None,
             buffer_programs: [None, None, None, None],
             vertex_buffer,
             width: (width as f32 * scale) as u32,
@@ -268,14 +318,6 @@ impl Drawer {
             self.backbuffer_images = backbuffer_images;
         }
 
-        // make the uniforms and inputs
-        let uniforms = glium::uniform! {
-            iResolution: [resolution.0 as f32, resolution.1 as f32, resolution.1 as f32 / resolution.0 as f32],
-            iFrame: frame as i32,
-            iTime: time as f32,
-            iMouse: [mouse_position.0 as f32, mouse_position.1 as f32, if mouse_input.0 { 1.0 } else { 0.0 }, if mouse_input.1 { 1.0 } else { 0.0 }]
-        };
-
         // make the render targets
         let mut main_image_target =
             glium::framebuffer::SimpleFrameBuffer::new(display, &self.main_image)
@@ -283,7 +325,19 @@ impl Drawer {
 
         // draw the frame
         let targets = [(&mut main_image_target, &self.main_image_program)];
-        for (target, program) in targets {
+
+		// for all channels/buffers
+        for (i, (target, program)) in targets.into_iter().enumerate() {
+
+            // make the uniforms and inputs
+            let uniforms = glium::uniform! {
+                iResolution: [resolution.0 as f32, resolution.1 as f32, resolution.1 as f32 / resolution.0 as f32],
+                iFrame: frame as i32,
+                iTime: time as f32,
+                iMouse: [mouse_position.0 as f32, mouse_position.1 as f32, if mouse_input.0 { 1.0 } else { 0.0 }, if mouse_input.1 { 1.0 } else { 0.0 }],
+                iChannel0: self.channels[i][0].get_texture(&self.backbuffer_images, &self.empty),
+            };
+
             // only draw if the program is valid
             if let Some(prog) = program {
                 target

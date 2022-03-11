@@ -8,6 +8,11 @@ uniform vec4 iMouse;
 uniform float iTime;
 uniform int iFrame;
 
+uniform sampler2D iChannel0;
+uniform sampler2D iChannel1;
+uniform sampler2D iChannel2;
+uniform sampler2D iChannel3;
+
 // shadertoy source is inserted here
 // this is just rust's format string
 {}

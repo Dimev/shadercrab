@@ -13,8 +13,13 @@ fn main() {
         [_, x] => (x.clone(), 1.0),
         [_, x, p, y] if p == "-s" || p == "--scale" => (
             x.clone(),
-            y.parse::<f32>()
-                .map_or_else(|_| { println!("Could not parse scale as a float"); std::process::exit(0);}, |x| x),
+            y.parse::<f32>().map_or_else(
+                |_| {
+                    println!("Could not parse scale as a float");
+                    std::process::exit(0);
+                },
+                |x| x,
+            ),
         ),
         _ => {
             // no valid arguments, show the help menu
@@ -85,12 +90,15 @@ fn main() {
     // current screen size
     let resolution = display.get_framebuffer_dimensions();
 
-    // load the program
+    // the actual drawing manager
+    let mut drawer = Drawer::new(&display, resolution.0, resolution.1, render_scale);
+
+	// load the program
     // mutable so we can reload later
     let program = load_program(&display, &file_path);
-
-    // the actual drawing manager
-    let mut drawer = Drawer::new(&display, program, resolution.0, resolution.1, render_scale);
+	
+	// TODO PARSE
+	drawer.main_image_program = program;
 
     // time since program start
     let mut start_time = std::time::Instant::now();
