@@ -4,12 +4,23 @@ use crate::buffer::*;
 
 /// helper to actually draw the shaders
 pub struct Drawer {
+	// buffers that manage rendering
     pub buffers: [Buffer; 5],
+
+	// where the buffers render to
 	backbuffers: [glium::Texture2d; 5],
+
+	// empty texture
     empty: glium::Texture2d,
+
+	// main program to copy to the framebuffer
     main_program: glium::Program,
+
+	// vertex buffer
     vertex_buffer: glium::VertexBuffer<Vert>,
-    pub width: u32,
+    
+	// size
+	pub width: u32,
     pub height: u32,
 }
 
@@ -81,6 +92,7 @@ impl Drawer {
         let empty = glium::Texture2d::empty(display, 1, 1).unwrap();
 
         // buffers
+		// TODO: PRETTYFY
 		let (buf0, backbuf0) = Buffer::new(display, width, height, None, [Channel::Buffer(0), Channel::None, Channel::None, Channel::None]); 
 		let (buf1, backbuf1) = Buffer::new(display, width, height, None, [Channel::None, Channel::None, Channel::None, Channel::None]); 
 		let (buf2, backbuf2) = Buffer::new(display, width, height, None, [Channel::None, Channel::None, Channel::None, Channel::None]); 
@@ -113,6 +125,7 @@ impl Drawer {
         // get the image size
         let resolution = display.get_framebuffer_dimensions();
 
+		// resize if needed
         self.width = (resolution.0 as f32 * scale) as u32;
         self.height = (resolution.1 as f32 * scale) as u32;
 
@@ -134,7 +147,7 @@ impl Drawer {
         // and draw to the main screen, grab the backbuffer as that's what's immediatly shown
         let mut target = display.draw();
         let uniform = glium::uniform! {
-            main_image: self.buffers[0].buffer.sampled().wrap_function(glium::uniforms::SamplerWrapFunction::Clamp),
+            main_image: self.backbuffers[0].sampled().wrap_function(glium::uniforms::SamplerWrapFunction::Clamp),
         };
 
         target
