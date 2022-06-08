@@ -1,9 +1,12 @@
 pub mod drawer;
+pub mod program;
+pub mod buffer;
 
 use glium::glutin;
 use glutin::event::{ElementState, Event, MouseButton, VirtualKeyCode, WindowEvent};
 
 use crate::drawer::*;
+use crate::program::*;
 
 fn main() {
     // figure out what shader to load
@@ -93,12 +96,12 @@ fn main() {
     // the actual drawing manager
     let mut drawer = Drawer::new(&display, resolution.0, resolution.1, render_scale);
 
-	// load the program
+    // load the program
     // mutable so we can reload later
     let program = load_program(&display, &file_path);
-	
-	// TODO PARSE
-	drawer.main_image_program = program;
+
+    // TODO PARSE
+    drawer.buffers[0].program = program;
 
     // time since program start
     let mut start_time = std::time::Instant::now();
@@ -165,7 +168,7 @@ fn main() {
                         && focus
                     {
                         println!("Reloaded shader");
-                        drawer.main_image_program = load_program(&display, &file_path);
+                        drawer.buffers[0].program = load_program(&display, &file_path);
                         // reset the time as well
                         start_time = std::time::Instant::now();
                         // reset the frame
@@ -183,7 +186,7 @@ fn main() {
                 if new_time_stamp != time_stamp {
                     // reload if it was
                     println!("Reloaded shader");
-                    drawer.main_image_program = load_program(&display, &file_path);
+                    drawer.buffers[0].program = load_program(&display, &file_path);
                     // reset the time as well
                     start_time = std::time::Instant::now();
                     // reset the frame
