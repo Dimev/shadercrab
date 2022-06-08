@@ -318,16 +318,15 @@ impl Drawer {
             self.backbuffer_images = backbuffer_images;
         }
 
-        // make the render targets
-        let mut main_image_target =
-            glium::framebuffer::SimpleFrameBuffer::new(display, &self.main_image)
-                .expect("Failed to make framebuffer");
-
         // draw the frame
-        let targets = [(&mut main_image_target, &self.main_image_program)];
+        let targets = [(&self.main_image, &self.main_image_program)];
 
 		// for all channels/buffers
-        for (i, (target, program)) in targets.into_iter().enumerate() {
+        for (i, (image, program)) in targets.into_iter().enumerate() {
+
+			// make the targets
+			let mut target = glium::framebuffer::SimpleFrameBuffer::new(display, image)
+                .expect("Failed to make framebuffer");
 
             // make the uniforms and inputs
             let uniforms = glium::uniform! {
