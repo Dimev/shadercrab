@@ -1,20 +1,27 @@
 #version 140
 
+// internal inputs, from the fragment shader 
 in vec2 _internal_vpos;
 out vec4 _internal_fragcol;
 
+// shadertoy inputs
 uniform vec3 iResolution;
 uniform vec4 iMouse;
 uniform float iTime;
 uniform int iFrame;
 
+// textures
 uniform sampler2D iChannel0;
 uniform sampler2D iChannel1;
 uniform sampler2D iChannel2;
 uniform sampler2D iChannel3;
 
+
+// shadertoy common inserted here, 
+// with rust format strings
+{}
+
 // shadertoy source is inserted here
-// this is just rust's format string
 {}
 
 // double braces to escape rust's formatter

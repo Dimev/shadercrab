@@ -21,7 +21,11 @@ pub enum Channel {
 
 impl Channel {
     // select a texture for the channel
-    fn get_texture<'a>(&'a self, buffers: &'a [glium::Texture2d], empty: &'a glium::Texture2d) -> &'a glium::Texture2d {
+    fn get_texture<'a>(
+        &'a self,
+        buffers: &'a [glium::Texture2d],
+        empty: &'a glium::Texture2d,
+    ) -> &'a glium::Texture2d {
         match self {
             Channel::Texture(x) => x,
             Channel::Buffer(i) => &buffers[*i],
@@ -42,7 +46,7 @@ pub struct Buffer {
     height: u32,
 
     // channels
-    channels: [Channel; 4],
+    pub channels: [Channel; 4],
 }
 
 impl Buffer {
@@ -83,7 +87,7 @@ impl Buffer {
     pub fn draw(
         &mut self,
         display: &glium::Display,
-		index: usize,
+        index: usize,
         backbuffers: &mut [glium::Texture2d; 5],
         time: f32,
         frame: i32,
@@ -106,7 +110,7 @@ impl Buffer {
             self.width = (resolution.0 as f32 * scale) as u32;
             self.height = (resolution.1 as f32 * scale) as u32;
 
-			// TODO: preserve on resize
+            // TODO: preserve on resize
             backbuffers[index] = glium::Texture2d::empty_with_format(
                 display,
                 glium::texture::UncompressedFloatFormat::F32F32F32F32,
@@ -123,20 +127,20 @@ impl Buffer {
         // make the uniforms and inputs
         let uniforms = glium::uniform! {
 
-			// resolution
+            // resolution
             iResolution: [resolution.0 as f32, resolution.1 as f32, resolution.1 as f32 / resolution.0 as f32],
-            
-			// frame counter
-			iFrame: frame as i32,
 
-			// time
+            // frame counter
+            iFrame: frame as i32,
+
+            // time
             iTime: time as f32,
 
-			// mouse position and buttons
+            // mouse position and buttons
             iMouse: [mouse_position.0 as f32, mouse_position.1 as f32, if mouse_input.0 { 1.0 } else { 0.0 }, if mouse_input.1 { 1.0 } else { 0.0 }],
-            
-			// user defined inputs
-			iChannel0: self.channels[0].get_texture(&backbuffers[1..], empty),
+
+            // user defined inputs
+            iChannel0: self.channels[0].get_texture(&backbuffers[1..], empty),
             iChannel1: self.channels[1].get_texture(&backbuffers[1..], empty),
             iChannel2: self.channels[2].get_texture(&backbuffers[1..], empty),
             iChannel3: self.channels[3].get_texture(&backbuffers[1..], empty),

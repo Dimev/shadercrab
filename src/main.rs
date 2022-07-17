@@ -1,11 +1,13 @@
-pub mod drawer;
-pub mod program;
 pub mod buffer;
+pub mod drawer;
+pub mod parser;
+pub mod program;
 
 use glium::glutin;
 use glutin::event::{ElementState, Event, MouseButton, VirtualKeyCode, WindowEvent};
 
 use crate::drawer::*;
+use crate::parser::*;
 use crate::program::*;
 
 fn main() {
@@ -98,10 +100,11 @@ fn main() {
 
     // load the program
     // mutable so we can reload later
-    let program = load_program(&display, &file_path);
+    //let program = load_program(&display, &file_path);
+    let shadertoy = Shadertoy::new(&std::path::PathBuf::from(&file_path));
 
-    // TODO PARSE
-    drawer.buffers[0].program = program;
+    // apply it
+    shadertoy.load_shaders(&display, &mut drawer);
 
     // time since program start
     let mut start_time = std::time::Instant::now();
@@ -168,7 +171,7 @@ fn main() {
                         && focus
                     {
                         println!("Reloaded shader");
-                        drawer.buffers[0].program = load_program(&display, &file_path);
+                        //drawer.buffers[0].program = load_program(&display, &file_path);
                         // reset the time as well
                         start_time = std::time::Instant::now();
                         // reset the frame
@@ -182,7 +185,7 @@ fn main() {
             Event::NewEvents(glutin::event::StartCause::ResumeTimeReached { .. })
             | Event::NewEvents(glutin::event::StartCause::Init) => {
                 // check if the shader was edited
-                let new_time_stamp = std::fs::metadata(&file_path).unwrap().modified().unwrap();
+                /*let new_time_stamp = std::fs::metadata(&file_path).unwrap().modified().unwrap();
                 if new_time_stamp != time_stamp {
                     // reload if it was
                     println!("Reloaded shader");
@@ -195,7 +198,7 @@ fn main() {
                     mouse_pos = (0, 0);
                     // and prevent continuous reloading
                     time_stamp = new_time_stamp;
-                }
+                }*/
 
                 // increment the frame
                 frame += 1;
