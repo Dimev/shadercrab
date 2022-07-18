@@ -146,8 +146,23 @@ impl Shadertoy {
 
             // try and load the common shader
             let common = if let Some(common) = &config.common {
-                std::fs::read_to_string(if common.is_abosulte() { common } else { directory.join(common) })
-                    .map_err(|x| format!("File {} not found: {}", (if common.is_abosulte() { common } else { directory.join(common) }).to_string_lossy(), x))?
+                std::fs::read_to_string(if common.is_absolute() {
+                    common.clone()
+                } else {
+                    directory.join(common)
+                })
+                .map_err(|x| {
+                    format!(
+                        "File {} not found: {}",
+                        (if common.is_absolute() {
+                            common.clone()
+                        } else {
+                            directory.join(common)
+                        })
+                        .to_string_lossy(),
+                        x
+                    )
+                })?
             } else {
                 String::new()
             };
@@ -165,7 +180,11 @@ impl Shadertoy {
                 let shader_channel = match (channel.shader, channel.image) {
                     (Some(shader_file), None) => {
                         // load the shader, and it's file
-                        let shader_path = if shader_file.is_absolute() { shader_file} else { directory.join(shader_file) };
+                        let shader_path = if shader_file.is_absolute() {
+                            shader_file
+                        } else {
+                            directory.join(shader_file)
+                        };
                         let shader = std::fs::read_to_string(&shader_path).map_err(|x| {
                             format!("Failed to load {}: {}", shader_path.to_string_lossy(), x)
                         })?;
@@ -181,7 +200,11 @@ impl Shadertoy {
                     }
                     (None, Some(image_file)) => {
                         // load the shader, and it's file
-                        let image_path = if image_file.is_absolute() { image_file) else { directory.join(image_file) };
+                        let image_path = if image_file.is_absolute() {
+                            image_file.clone()
+                        } else {
+                            directory.join(image_file)
+                        };
                         let image = image::open(&image_path).map_err(|x| {
                             format!("Failed to load {}: {}", image_path.to_string_lossy(), x)
                         })?;
