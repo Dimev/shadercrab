@@ -171,6 +171,7 @@ impl Shadertoy {
             let mut toy = Self {
                 files: vec![(path.into(), file_changed_time(path)?)],
                 config_file: path.into(),
+                main_shader: config.output,
                 common,
                 ..Default::default()
             };
