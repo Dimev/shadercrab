@@ -1,8 +1,16 @@
+use crate::parse::Shadertoy;
 use clap::Parser;
-use parse::Shadertoy;
 use std::path::*;
+use winit::{
+    event::{Event, WindowEvent},
+    event_loop::{ControlFlow, EventLoop},
+    window::Window,
+};
+
+use crate::renderer::Renderer;
 
 mod parse;
+mod renderer;
 
 /// Shadercrab, a dektop shadertoy emulator
 #[derive(Debug, Parser)]
@@ -25,7 +33,47 @@ fn main() {
     // get the args
     let args = Arguments::parse();
 
-    let toy = Shadertoy::new(&args.config, args.shader);
+    let toy = match Shadertoy::new(&args.config, args.shader) {
+        Ok(x) => x,
+        Err(x) => {
+            println!("Failed to parse config: {}", x);
+            std::process::exit(1);
+        }
+    };
 
-    println!("{:?}", toy);
+    // create a window
+    let event_loop = EventLoop::new();
+    let window = winit::window::Window::new(&event_loop).expect("Failed to make window");
+
+    // and a renderer
+    let mut renderer = Renderer::new(&window);
+
+    // start the event loop
+    event_loop.run(move |event, _, control_flow| {
+        // TODO: make this not consume CPU
+        *control_flow = ControlFlow::Poll;
+
+        // ckeck if the config changed
+        if toy.check_reload() {
+            println!("File changed, reconfigure");
+        }
+
+        match event {
+            Event::WindowEvent {
+                event: WindowEvent::Resized(_),
+                ..
+            } => {
+                window.request_redraw();
+            }
+            Event::RedrawRequested(_) => {
+                // render!
+                renderer.render(window.inner_size().width, window.inner_size().height);
+            }
+            Event::WindowEvent {
+                event: WindowEvent::CloseRequested,
+                ..
+            } => *control_flow = ControlFlow::Exit,
+            _ => {}
+        }
+    });
 }
