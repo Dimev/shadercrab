@@ -44,6 +44,9 @@ fn main() {
     // create a window
     let event_loop = EventLoop::new();
     let window = winit::window::Window::new(&event_loop).expect("Failed to make window");
+    
+    // start rendering
+    window.request_redraw();
 
     // and a renderer
     let mut renderer = Renderer::new(&window);
@@ -51,7 +54,7 @@ fn main() {
     // start the event loop
     event_loop.run(move |event, _, control_flow| {
         // TODO: make this not consume CPU
-        *control_flow = ControlFlow::Poll;
+        *control_flow = ControlFlow::Wait;
 
         // ckeck if the config changed
         if toy.check_reload() {
@@ -68,6 +71,7 @@ fn main() {
             Event::RedrawRequested(_) => {
                 // render!
                 renderer.render(window.inner_size().width, window.inner_size().height);
+                window.request_redraw();
             }
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,

@@ -4,8 +4,18 @@ use winit::window::Window;
 
 /// struct to represent a texture channel
 pub struct TextureChannel {
+    
     /// texture
     texture: wgpu::Texture,
+
+    /// texture view this provides
+    texture_view: wgpu::TextureView,
+
+    /// layout for the bind group this channel provides
+    layout: wgpu::BindGroupLayout,
+
+    /// actual bind group
+    bind_group: wgpu::BindGroup,
 }
 
 /// struct to represent a buffer
@@ -13,14 +23,20 @@ pub struct ShaderChannel {
     /// texture to render to
     texture: wgpu::Texture,
 
-    /// shader to render with
-    shader: wgpu::ShaderModule,
+    /// texture view this provides
+    texture_view: wgpu::TextureView,
+
+    /// vertex shader to render with
+    vertex_shader: wgpu::ShaderModule,
+
+    /// fragment shader to render with
+    fragment_shader: wgpu::ShaderModule,
 
     /// render pipeline to use here
     pipeline: wgpu::RenderPipeline,
 
-    /// layout for the bind group
-    bind_group_layout: wgpu::BindGroupLayout,
+    /// layout for the bind group this channel provides
+    layout: wgpu::BindGroupLayout,
 
     /// actual bind group
     bind_group: wgpu::BindGroup,
@@ -62,9 +78,14 @@ pub struct Renderer {
     /// dummy texture to show when nothing is available
     no_pipelines_texture: wgpu::Texture,
 
-    // TODO: uniform buffer for uniforms
+    /// uniform buffer for uniforms
+    uniforms: wgpu::Buffer,
 
-    // TODO: uniform buffer layout
+    /// uniform buffer bind group layout
+    uniforms_layout: wgpu::BindGroupLayout,
+
+    /// uniform buffer bind group
+    uniforms_bind_group: wgpu::BindGroup,
 
     // TODO: mipmapping pipeline
     /// texture channels
@@ -152,6 +173,9 @@ impl Renderer {
             compatible_surface: Some(&surface),
         }))
         .expect("Failed to get gpu");
+
+        let info = adapter.get_info();
+        println!("{} - {:?}", info.name, info.backend);
 
         // device and queue
         let (device, queue) = pollster::block_on(adapter.request_device(
@@ -248,7 +272,7 @@ impl Renderer {
             format: swapchain_format,
             width: size.width,
             height: size.height,
-            present_mode: wgpu::PresentMode::Fifo,
+            present_mode: wgpu::PresentMode::AutoVsync,
         };
 
         // dummy texture
@@ -294,6 +318,43 @@ impl Renderer {
             ],
         });
 
+        // now the uniforms
+        let uniforms = device.create_buffer(&wgpu::BufferDescriptor {
+            label: None,
+            size: 1,
+            usage: wgpu::BufferUsages::UNIFORM, 
+            mapped_at_creation: false,
+        });
+
+        // it's bind group layout
+        let uniforms_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: None,
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: std::num::NonZeroU64::new(1),
+                    },
+                    count: None,
+                }
+            ],
+        });
+
+        // and bind group
+        let uniforms_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: None,
+            layout: &uniforms_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: uniforms.as_entire_binding(),
+                }
+            ]
+        });
+
         surface.configure(&device, &config);
 
         // now just return the struct
@@ -308,6 +369,9 @@ impl Renderer {
             copy_to_screen_sampler,
             copy_to_screen_bind_group_layout,
             copy_to_screen_bind_group,
+            uniforms,
+            uniforms_layout,
+            uniforms_bind_group,
             no_pipelines_texture,
             texture_channels: HashMap::new(),
             shader_channels: HashMap::new(),

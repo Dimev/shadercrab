@@ -8,17 +8,19 @@ struct VertOut {
 }
 
 @vertex
-fn vs_main(@builtin(vertex_index) in_index: u32) -> VertOut {
-                
+fn vs_main(@builtin(vertex_index) idx: u32) -> VertOut {
+
+	// vertices
+	var vert: vec2<f32> = vec2<f32>(-1.0, -1.0);
+
+	// make triange
+	// I hate wgsl
+	if idx == 1u { vert = vec2<f32>(-1.0, 3.0); }
+	if idx == 2u { vert = vec2<f32>(3.0, -1.0); }
+
 	// triangle to cover the full screen
-        var x: f32 = -1.0;
-	var y: f32 = -1.0;
-
-	if in_index == 0u { x = 3.0; }
-	if in_index != 0u { y = 3.0; }
-
 	var out: VertOut;
-	out.pos = vec4<f32>(x, y, 0.0, 1.0);
+	out.pos = vec4<f32>(vert.x, vert.y, 0.0, 1.0);
 	return out;
 }
 
@@ -26,5 +28,5 @@ fn vs_main(@builtin(vertex_index) in_index: u32) -> VertOut {
 fn fs_main(vertex: VertOut) -> @location(0) vec4<f32> {
 
 	// sample the input texture
-        return vec4<f32>(1.0, 0.0, 0.0, 1.0);
+        return textureSample(texture_in, texture_sam, vertex.pos.xy);
 }
