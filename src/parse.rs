@@ -75,7 +75,7 @@ pub struct Shadertoy {
     common: String,
 
     /// all channels
-    channels: HashMap<String, ShaderChannel>,
+    pub channels: HashMap<String, ShaderChannel>,
 }
 
 impl Shadertoy {

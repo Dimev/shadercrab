@@ -1,46 +1,6 @@
-use crate::parse::Shadertoy;
+use crate::parse::{Shadertoy, ShaderChannel};
 use std::collections::HashMap;
 use winit::window::Window;
-
-/// struct to represent a texture channel
-pub struct TextureChannel {
-    
-    /// texture
-    texture: wgpu::Texture,
-
-    /// texture view this provides
-    texture_view: wgpu::TextureView,
-
-    /// layout for the bind group this channel provides
-    layout: wgpu::BindGroupLayout,
-
-    /// actual bind group
-    bind_group: wgpu::BindGroup,
-}
-
-/// struct to represent a buffer
-pub struct ShaderChannel {
-    /// texture to render to
-    texture: wgpu::Texture,
-
-    /// texture view this provides
-    texture_view: wgpu::TextureView,
-
-    /// vertex shader to render with
-    vertex_shader: wgpu::ShaderModule,
-
-    /// fragment shader to render with
-    fragment_shader: wgpu::ShaderModule,
-
-    /// render pipeline to use here
-    pipeline: wgpu::RenderPipeline,
-
-    /// layout for the bind group this channel provides
-    layout: wgpu::BindGroupLayout,
-
-    /// actual bind group
-    bind_group: wgpu::BindGroup,
-}
 
 /// struct for the entire state of the renderer
 pub struct Renderer {
@@ -81,25 +41,84 @@ pub struct Renderer {
     /// uniform buffer for uniforms
     uniforms: wgpu::Buffer,
 
-    /// uniform buffer bind group layout
-    uniforms_layout: wgpu::BindGroupLayout,
-
     /// uniform buffer bind group
     uniforms_bind_group: wgpu::BindGroup,
 
     // TODO: mipmapping pipeline
-    /// texture channels
-    texture_channels: HashMap<String, TextureChannel>,
 
-    /// buffer channels, note that these also need to be updated
-    /// as they render to a shader
-    shader_channels: HashMap<String, ShaderChannel>,
+    /// all textures to use, and whether to resize them
+    textures: HashMap<String, (bool, wgpu::Texture, wgpu::TextureView)>,
+
+    /// all pipelines to use
+    pipelines: HashMap<String, wgpu::RenderPipeline>,
+
+    /// all bind groups to use
+    bind_groups: HashMap<String, wgpu::BindGroup>,
+
 }
 
 impl Renderer {
     pub fn configure(&mut self, config: &Shadertoy) {
-        todo!();
-    }
+       
+        self.textures.clear();
+        self.pipelines.clear();
+        self.bind_groups.clear();
+        
+        // make all textures for each channel
+        for (name, channel) in config.channels.iter() {
+            
+            // figure out the size
+            let (width, height) = match channel {
+                ShaderChannel::Shader { .. } => (self.width, self.height),
+                ShaderChannel::Image { image } => image.dimensions(),
+            };
+
+            // make the texture and it's view
+            let texture = self.device.create_texture(&wgpu::TextureDescriptor {
+                label: None,
+                size: wgpu::Extent3d { width, height, depth_or_array_layers: 1 },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: wgpu::TextureFormat::Rgba32Float,
+                usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
+            });
+
+            // view
+            let texture_view = texture.create_view(&wgpu::TextureViewDescriptor {
+                label: None,
+                format: Some(wgpu::TextureFormat::Rgba32Float),
+                dimension: Some(wgpu::TextureViewDimension::D2),
+                aspect: wgpu::TextureAspect::All,
+                base_mip_level: 0,
+                mip_level_count: None,
+                base_array_layer: 0,
+                array_layer_count: None,
+            }); 
+            
+            // whether to resize it
+            let resize = match channel {
+                ShaderChannel::Shader { .. } => true,
+                _ => false,
+            };
+            
+            // add it
+            self.textures.insert(name.clone(), (resize, texture, texture_view));
+
+        }
+        
+        // first, load the vertex shader for these
+        let shader_module = self.device.create_shader_module(wgpu::include_wgsl!("full_screen_triangle.wgsl"));
+
+        // make all bind groups for each shader channel
+        // these are what the shader will take in
+        // also make all render pipelines for each shader channel while we're at it
+        for (name, channel) in config.channels.iter() {
+        
+                            
+        
+        }   
+     }
 
     /// render a frame to the window
     pub fn render(&mut self, width: u32, height: u32) {
@@ -111,6 +130,8 @@ impl Renderer {
 
             // reconfigure because it changed
             self.surface.configure(&self.device, &self.config);
+
+            // TODO: figure out how to resize the textures properly
         }
 
         // update buffers
@@ -227,21 +248,22 @@ impl Renderer {
         });
 
         // shader for the copy to screen
-        let shader = device.create_shader_module(wgpu::include_wgsl!("copy_to_screen.wgsl"));
-
+        let vertex_shader = device.create_shader_module(wgpu::include_wgsl!("full_screen_triangle.wgsl"));
+        let fragment_shader = device.create_shader_module(wgpu::include_wgsl!("copy_to_screen.wgsl"));
+        
         // actual pipline
         let copy_to_screen_pipeline =
             device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
                 label: Some("Copy to screen"),
                 layout: Some(&pipeline_layout),
                 vertex: wgpu::VertexState {
-                    module: &shader,
-                    entry_point: "vs_main",
+                    module: &vertex_shader,
+                    entry_point: "main",
                     buffers: &[],
                 },
                 fragment: Some(wgpu::FragmentState {
-                    module: &shader,
-                    entry_point: "fs_main",
+                    module: &fragment_shader,
+                    entry_point: "main",
                     targets: &[Some(swapchain_format.into())],
                 }),
                 primitive: wgpu::PrimitiveState::default(),
@@ -370,11 +392,11 @@ impl Renderer {
             copy_to_screen_bind_group_layout,
             copy_to_screen_bind_group,
             uniforms,
-            uniforms_layout,
             uniforms_bind_group,
             no_pipelines_texture,
-            texture_channels: HashMap::new(),
-            shader_channels: HashMap::new(),
+            textures: HashMap::new(),
+            pipelines: HashMap::new(),
+            bind_groups: HashMap::new(),
         }
     }
 }

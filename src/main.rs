@@ -16,15 +16,48 @@ mod renderer;
 #[derive(Debug, Parser)]
 #[clap(author, version, about, long_about = None)]
 struct Arguments {
-    /// what to multiply the resolution by when rendering
+    /// Scale at which to render
+    /// 
+    /// This affects the resolution of the textures to render to internally
+    /// The new resolution is the window resolution * this scale factor
     #[clap(short, long, value_parser, default_value_t = 1.0)]
     scale: f32,
 
     /// file path to the config file or shader
+    ///
+    /// The file format used is toml.
+    /// The field 'main' determines what shader will be rendered to the output screen
+    /// The channels list allows determining what shaders render to what textures
+    /// The common field describes the shader to include in all given shaders
+    ///
+    /// an example of a config
+    /// ```toml
+    /// 
+    /// # render this to the window
+    /// main = "main"
+    ///
+    /// # the common shader to include
+    /// common = "common.glsl"
+    ///
+    /// # main pass, this is used as main
+    /// [channels.main]
+    /// shader = "main.glsl"
+    /// inputs = { iChannel0 = "noise", iChannel1 = "bg" }
+    ///
+    /// # texture to input into the shader
+    /// [channels.noise]
+    /// texture = "noise.png"
+    ///
+    /// # and another channel
+    /// [channels.bg]
+    /// shader = "bg.glsl"
+    /// ```
     #[clap(value_parser)]
     config: PathBuf,
 
     /// treat the file as a shader
+    ///
+    /// This means that the given file at the config is treated as the shader itself
     #[clap(long, parse(from_flag))]
     shader: bool,
 }
