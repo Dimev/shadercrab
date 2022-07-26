@@ -1,6 +1,6 @@
 use image::Rgba32FImage;
 use serde::Deserialize;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::path::*;
 use std::time::SystemTime;
 
@@ -28,7 +28,7 @@ pub struct Channel {
     pub image: Option<PathBuf>,
 
     /// list of inputs
-    pub inputs: Option<HashMap<String, String>>,
+    pub inputs: Option<BTreeMap<String, String>>,
 }
 
 /// struct for a full shader definition
@@ -49,7 +49,7 @@ pub struct Config {
 pub enum ShaderChannel {
     Shader {
         shader: String,
-        inputs: HashMap<String, String>,
+        inputs: BTreeMap<String, String>,
     },
     Image {
         image: Rgba32FImage,
@@ -72,7 +72,7 @@ pub struct Shadertoy {
     is_shader: bool,
 
     /// common shader
-    common: String,
+    pub common: String,
 
     /// all channels
     pub channels: HashMap<String, ShaderChannel>,
@@ -108,7 +108,7 @@ impl Shadertoy {
                 "main".into(),
                 ShaderChannel::Shader {
                     shader,
-                    inputs: HashMap::new(),
+                    inputs: BTreeMap::new(),
                 },
             );
 
@@ -196,7 +196,7 @@ impl Shadertoy {
                         // then construct the channel
                         ShaderChannel::Shader {
                             shader,
-                            inputs: channel.inputs.unwrap_or(HashMap::new()),
+                            inputs: channel.inputs.unwrap_or(BTreeMap::new()),
                         }
                     }
                     (None, Some(image_file)) => {

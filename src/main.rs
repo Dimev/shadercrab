@@ -11,13 +11,14 @@ use crate::renderer::Renderer;
 
 mod parse;
 mod renderer;
+mod shader;
 
 /// Shadercrab, a dektop shadertoy emulator
 #[derive(Debug, Parser)]
 #[clap(author, version, about, long_about = None)]
 struct Arguments {
     /// Scale at which to render
-    /// 
+    ///
     /// This affects the resolution of the textures to render to internally
     /// The new resolution is the window resolution * this scale factor
     #[clap(short, long, value_parser, default_value_t = 1.0)]
@@ -32,7 +33,7 @@ struct Arguments {
     ///
     /// an example of a config
     /// ```toml
-    /// 
+    ///
     /// # render this to the window
     /// main = "main"
     ///
@@ -77,12 +78,15 @@ fn main() {
     // create a window
     let event_loop = EventLoop::new();
     let window = winit::window::Window::new(&event_loop).expect("Failed to make window");
-    
+
     // start rendering
     window.request_redraw();
 
     // and a renderer
     let mut renderer = Renderer::new(&window);
+
+    // configure the renderer
+    renderer.configure(&toy);
 
     // start the event loop
     event_loop.run(move |event, _, control_flow| {
