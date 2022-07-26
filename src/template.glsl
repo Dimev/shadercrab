@@ -1,4 +1,4 @@
-#version 440
+#version 460
 
 // uniform buffer
 layout(binding = 0) uniform ShadercrabInputs {{
