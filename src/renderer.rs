@@ -65,13 +65,8 @@ impl Renderer {
         self.pipelines.clear();
         self.bind_groups.clear();
 
-        // parse the shaders
-        let shaders = config.get_shaders(&self.device);
-
         // if it failed, print the message
-        if let Err(x) = shaders {
-            println!("Shader compilation failed: {:?}", x);
-
+        if false {
             // rebuild bind group to display the error texture
             self.copy_to_screen_bind_group =
                 self.device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -150,7 +145,20 @@ impl Renderer {
         // make all bind groups for each shader channel
         // these are what the shader will take in
         // also make all render pipelines for each shader channel while we're at it
-        for (name, channel) in config.channels.iter() {}
+        for (name, shader, inputs) in config.channels.iter().filter_map(|(n, c)| match c {
+            ShaderChannel::Shader { shader, inputs } => Some((n, shader, inputs)),
+            _ => None,
+        }) {
+
+            // TODO: compile the shader
+            // TODO: if it failed, pretty print the error
+
+            // create the bind group layout for this shader
+
+            // create the bind group
+
+            // create the pipeline
+        }
     }
 
     /// render a frame to the window
