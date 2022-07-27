@@ -77,31 +77,6 @@ impl Renderer {
         self.textures.clear();
         self.pipelines.clear();
 
-        // if it failed, print the message
-        if false {
-            // rebuild bind group to display the error texture
-            self.copy_to_screen_bind_group =
-                self.device.create_bind_group(&wgpu::BindGroupDescriptor {
-                    label: None,
-                    layout: &self.copy_to_screen_bind_group_layout,
-                    entries: &[
-                        wgpu::BindGroupEntry {
-                            binding: 0,
-                            resource: wgpu::BindingResource::TextureView(
-                                &self.no_pipelines_texture_view,
-                            ),
-                        },
-                        wgpu::BindGroupEntry {
-                            binding: 1,
-                            resource: wgpu::BindingResource::Sampler(&self.copy_to_screen_sampler),
-                        },
-                    ],
-                });
-
-            // stop early
-            return;
-        }
-
         // make all textures for each channel
         for (name, channel) in config.channels.iter() {
             // figure out the size
@@ -154,6 +129,9 @@ impl Renderer {
             .device
             .create_shader_module(wgpu::include_wgsl!("full_screen_triangle.wgsl"));
 
+        // track shader compiler errors
+        let mut shader_failed_compile = false;
+
         // make all bind groups for each shader channel
         // these are what the shader will take in
         // also make all render pipelines for each shader channel while we're at it
@@ -162,8 +140,19 @@ impl Renderer {
             _ => None,
         }) {
             // compile the shader
-            let fragment_shader =
-                compile_shader(&self.device, shader, &config.common, &inputs).unwrap();
+            let fragment_shader = compile_shader(&self.device, shader, &config.common, &inputs);
+
+            // if it failed, report the error
+            let fragment_shader = match fragment_shader {
+                Ok(x) => x,
+                Err(x) => {
+                    // report err
+                    println!("Error: {}", x);
+
+                    // stop
+                    continue;
+                }
+            };
 
             // make the bind group layout
             let layout_entries = (0..inputs.len() * 2)
@@ -171,7 +160,7 @@ impl Renderer {
                 .map(|x| wgpu::BindGroupLayoutEntry {
                     binding: x as u32,
                     visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: if x & 1 == 0 {
+                    ty: if x & 1 != 0 {
                         wgpu::BindingType::Texture {
                             sample_type: wgpu::TextureSampleType::Float { filterable: true },
                             view_dimension: wgpu::TextureViewDimension::D2,
@@ -202,7 +191,7 @@ impl Renderer {
                 .enumerate()
                 .map(|(i, x)| {
                     // get the texture
-                    // TODO: verify config 
+                    // TODO: verify config
                     let texture = &self.textures[x].2;
 
                     // make the binding resource
@@ -276,6 +265,35 @@ impl Renderer {
                 },
             );
         }
+
+        // if an error occurred, clear the pipelines and textures, as they aren't useful
+        if shader_failed_compile {
+            self.textures.clear();
+            self.pipelines.clear();
+        }
+
+        // rebuild the copy to screen bind group
+        self.copy_to_screen_bind_group =
+            self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+                label: None,
+                layout: &self.copy_to_screen_bind_group_layout,
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: wgpu::BindingResource::TextureView(
+                            // select the main output if available, otherwise the fallback
+                            self.textures
+                                .get(&config.main_shader)
+                                .map(|x| &x.2)
+                                .unwrap_or(&self.no_pipelines_texture_view),
+                        ),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: wgpu::BindingResource::Sampler(&self.copy_to_screen_sampler),
+                    },
+                ],
+            });
     }
 
     /// render a frame to the window
@@ -395,13 +413,13 @@ impl Renderer {
         // bind groups, just a single texture
         let copy_to_screen_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label: None,
+                label: Some("Copy To Screen"),
                 entries: &[
                     wgpu::BindGroupLayoutEntry {
                         binding: 0,
                         visibility: wgpu::ShaderStages::FRAGMENT,
                         ty: wgpu::BindingType::Texture {
-                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            sample_type: wgpu::TextureSampleType::Float { filterable: false },
                             view_dimension: wgpu::TextureViewDimension::D2,
                             multisampled: false,
                         },
@@ -410,7 +428,7 @@ impl Renderer {
                     wgpu::BindGroupLayoutEntry {
                         binding: 1,
                         visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::NonFiltering),
                         count: None,
                     },
                 ],
@@ -459,9 +477,9 @@ impl Renderer {
             address_mode_u: wgpu::AddressMode::ClampToEdge,
             address_mode_v: wgpu::AddressMode::ClampToEdge,
             address_mode_w: wgpu::AddressMode::ClampToEdge,
-            mag_filter: wgpu::FilterMode::Linear,
-            min_filter: wgpu::FilterMode::Linear,
-            mipmap_filter: wgpu::FilterMode::Linear,
+            mag_filter: wgpu::FilterMode::Nearest,
+            min_filter: wgpu::FilterMode::Nearest,
+            mipmap_filter: wgpu::FilterMode::Nearest,
             lod_min_clamp: 0.0,
             lod_max_clamp: 0.0,
             compare: None,
@@ -489,14 +507,14 @@ impl Renderer {
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba8Unorm,
+            format: wgpu::TextureFormat::Rgba32Float,
             usage: wgpu::TextureUsages::TEXTURE_BINDING,
         });
 
         let no_pipelines_texture_view =
             no_pipelines_texture.create_view(&wgpu::TextureViewDescriptor {
                 label: None,
-                format: Some(wgpu::TextureFormat::Rgba8Unorm),
+                format: Some(wgpu::TextureFormat::Rgba32Float),
                 dimension: Some(wgpu::TextureViewDimension::D2),
                 aspect: wgpu::TextureAspect::All,
                 base_mip_level: 0,

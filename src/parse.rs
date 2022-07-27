@@ -66,7 +66,7 @@ pub struct Shadertoy {
     config_file: PathBuf,
 
     /// which shader to show to the screen
-    main_shader: String,
+    pub main_shader: String,
 
     /// whether this is a shader, or a full config
     is_shader: bool,
