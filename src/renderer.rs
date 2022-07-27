@@ -1,6 +1,19 @@
 use crate::parse::{ShaderChannel, Shadertoy};
-use std::collections::HashMap;
+use crate::shader::compile_shader;
+use std::collections::{BTreeMap, HashMap};
 use winit::window::Window;
+
+/// struct to represent a single channel render pipeline
+pub struct ChannelRenderer {
+    /// it's pipeline
+    pipeline: wgpu::RenderPipeline,
+
+    /// it's bind group
+    bind_group: wgpu::BindGroup,
+
+    /// it's inputs
+    inputs: Vec<String>,
+}
 
 /// struct for the entire state of the renderer
 pub struct Renderer {
@@ -44,6 +57,9 @@ pub struct Renderer {
     /// uniform buffer for uniforms
     uniforms: wgpu::Buffer,
 
+    /// layout of the uniforms bind group
+    uniforms_layout: wgpu::BindGroupLayout,
+
     /// uniform buffer bind group
     uniforms_bind_group: wgpu::BindGroup,
 
@@ -51,11 +67,8 @@ pub struct Renderer {
     /// all textures to use, and whether to resize them
     textures: HashMap<String, (bool, wgpu::Texture, wgpu::TextureView)>,
 
-    /// all pipelines to use
-    pipelines: HashMap<String, wgpu::RenderPipeline>,
-
-    /// all bind groups to use
-    bind_groups: HashMap<String, wgpu::BindGroup>,
+    /// all render pipelines
+    pipelines: HashMap<String, ChannelRenderer>,
 }
 
 impl Renderer {
@@ -63,7 +76,6 @@ impl Renderer {
         // clear everything
         self.textures.clear();
         self.pipelines.clear();
-        self.bind_groups.clear();
 
         // if it failed, print the message
         if false {
@@ -138,7 +150,7 @@ impl Renderer {
         }
 
         // first, load the vertex shader for these
-        let shader_module = self
+        let vertex_shader = self
             .device
             .create_shader_module(wgpu::include_wgsl!("full_screen_triangle.wgsl"));
 
@@ -149,15 +161,120 @@ impl Renderer {
             ShaderChannel::Shader { shader, inputs } => Some((n, shader, inputs)),
             _ => None,
         }) {
+            // compile the shader
+            let fragment_shader =
+                compile_shader(&self.device, shader, &config.common, &inputs).unwrap();
 
-            // TODO: compile the shader
-            // TODO: if it failed, pretty print the error
+            // make the bind group layout
+            let layout_entries = (0..inputs.len() * 2)
+                .into_iter()
+                .map(|x| wgpu::BindGroupLayoutEntry {
+                    binding: x as u32,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: if x & 1 == 0 {
+                        wgpu::BindingType::Texture {
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            multisampled: false,
+                        }
+                    } else {
+                        wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering)
+                    },
+                    count: None,
+                })
+                .collect::<Vec<wgpu::BindGroupLayoutEntry>>();
 
-            // create the bind group layout for this shader
+            let layout = self
+                .device
+                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    label: None,
+                    entries: &layout_entries,
+                });
 
-            // create the bind group
+            // shared sampler for now
+            let sampler = self
+                .device
+                .create_sampler(&wgpu::SamplerDescriptor::default());
 
-            // create the pipeline
+            // and actual bind groups
+            let entries = inputs
+                .values()
+                .enumerate()
+                .map(|(i, x)| {
+                    // get the texture
+                    // TODO: verify config 
+                    let texture = &self.textures[x].2;
+
+                    // make the binding resource
+                    let texture_res = wgpu::BindingResource::TextureView(&texture);
+
+                    // get the sampler
+                    // TODO!
+
+                    // make the binding resource
+                    let sampler_res = wgpu::BindingResource::Sampler(&sampler);
+
+                    // make the iterator
+                    [(i * 2, sampler_res), (i * 2 + 1, texture_res)]
+                })
+                .flatten()
+                .map(|(i, x)| wgpu::BindGroupEntry {
+                    binding: i as u32,
+                    resource: x,
+                })
+                .collect::<Vec<wgpu::BindGroupEntry>>();
+
+            // make the bind group
+            let bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+                label: None,
+                layout: &layout,
+                entries: &entries,
+            });
+
+            // pipeline layout
+            let pipeline_layout =
+                self.device
+                    .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                        label: None,
+                        bind_group_layouts: &[&self.uniforms_layout, &layout],
+                        push_constant_ranges: &[],
+                    });
+
+            // and render pipeline
+            let pipeline = self
+                .device
+                .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                    label: None,
+                    layout: Some(&pipeline_layout),
+                    vertex: wgpu::VertexState {
+                        module: &vertex_shader,
+                        entry_point: "main",
+                        buffers: &[],
+                    },
+                    fragment: Some(wgpu::FragmentState {
+                        module: &fragment_shader,
+                        entry_point: "main",
+                        targets: &[Some(wgpu::ColorTargetState {
+                            format: wgpu::TextureFormat::Rgba32Float,
+                            blend: None,
+                            write_mask: wgpu::ColorWrites::all(),
+                        })],
+                    }),
+                    primitive: wgpu::PrimitiveState::default(),
+                    depth_stencil: None,
+                    multisample: wgpu::MultisampleState::default(),
+                    multiview: None,
+                });
+
+            // and insert it
+            self.pipelines.insert(
+                name.clone(),
+                ChannelRenderer {
+                    pipeline,
+                    bind_group,
+                    inputs: inputs.values().cloned().collect(),
+                },
+            );
         }
     }
 
@@ -175,7 +292,33 @@ impl Renderer {
             // TODO: figure out how to resize the textures properly
         }
 
+        // command encoder
+        let mut encoder = self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+
         // update buffers
+        for (target, channel) in self.pipelines.iter() {
+            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: None,
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &self.textures[target].2,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Load,
+                        store: true,
+                    },
+                })],
+                depth_stencil_attachment: None,
+            });
+
+            pass.set_pipeline(&channel.pipeline);
+            pass.set_bind_group(0, &self.uniforms_bind_group, &[]);
+            pass.set_bind_group(1, &channel.bind_group, &[]);
+
+            // draw the triangle
+            pass.draw(0..3, 0..1);
+        }
 
         // render
         let frame = self
@@ -185,11 +328,6 @@ impl Renderer {
         let view = frame
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
-
-        // command encoder
-        let mut encoder = self
-            .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 
         let mut renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: None,
@@ -431,12 +569,12 @@ impl Renderer {
             copy_to_screen_bind_group_layout,
             copy_to_screen_bind_group,
             uniforms,
+            uniforms_layout,
             uniforms_bind_group,
             no_pipelines_texture,
             no_pipelines_texture_view,
             textures: HashMap::new(),
             pipelines: HashMap::new(),
-            bind_groups: HashMap::new(),
         }
     }
 }

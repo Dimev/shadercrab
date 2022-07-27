@@ -1,7 +1,7 @@
 #version 460
 
 // uniform buffer
-layout(binding = 0) uniform ShadercrabInputs {{
+layout(binding = 0) uniform ShadercrabInternalInputs {{
 	vec3 iResolution;
 	float iTime;
 }};
@@ -9,7 +9,7 @@ layout(binding = 0) uniform ShadercrabInputs {{
 // vertex input
 
 // output
-layout(location = 0) out vec4 shadercrab_fragcol;
+layout(location = 0) out vec4 shadercrab_internal_fragcol;
 
 // textures 
 {}
@@ -24,6 +24,6 @@ layout(location = 0) out vec4 shadercrab_fragcol;
 void main() {{
 
 	// call shadertoy's mainImage
-	mainImage(shadercrab_fragcol, vec2(0.0));
+	mainImage(shadercrab_internal_fragcol, vec2(0.0));
 
 }}
