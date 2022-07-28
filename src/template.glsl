@@ -2,8 +2,15 @@
 
 // uniform buffer
 layout(binding = 0) uniform ShadercrabInternalInputs {{
-	vec3 iResolution;
+	
+	// shadertoy uniforms
+	vec3 iResolution;	
 	float iTime;
+	float iTimeDelta;
+	int	iFrame;	
+	float iFrameRate;	
+	vec4 iMouse;	
+	vec4 iDate;
 }};
 
 // vertex input

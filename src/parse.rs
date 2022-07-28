@@ -62,14 +62,8 @@ pub struct Shadertoy {
     /// all files to watch
     files: Vec<(PathBuf, SystemTime)>,
 
-    /// config file itself
-    config_file: PathBuf,
-
     /// which shader to show to the screen
     pub main_shader: String,
-
-    /// whether this is a shader, or a full config
-    is_shader: bool,
 
     /// common shader
     pub common: String,
@@ -114,10 +108,8 @@ impl Shadertoy {
 
             Ok(Self {
                 files: vec![(path.into(), file_changed)],
-                config_file: path.into(),
                 main_shader: "main".into(),
                 common: "".into(),
-                is_shader,
                 channels,
             })
         } else {
@@ -170,7 +162,6 @@ impl Shadertoy {
             // setup without looping
             let mut toy = Self {
                 files: vec![(path.into(), file_changed_time(path)?)],
-                config_file: path.into(),
                 main_shader: config.output,
                 common,
                 ..Default::default()
