@@ -116,7 +116,11 @@ fn main() {
                     };
                 }
                 // render!
-                renderer.render(window.inner_size().width, window.inner_size().height);
+                renderer.render(
+                    window.inner_size().width,
+                    window.inner_size().height,
+                    Default::default(),
+                );
                 window.request_redraw();
             }
             Event::WindowEvent {

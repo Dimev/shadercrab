@@ -1,6 +1,32 @@
 use std::collections::HashMap;
 use winit::window::Window;
 
+/// uniforms representation
+#[repr(C)]
+#[derive(Default, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct Unifomrs {
+    /// vec3 iResolution;
+    pub resolution: [f32; 4],
+
+    /// float iTime;
+    pub time: f32,
+
+    /// float iTimeDelta;
+    pub delta: f32,
+
+    /// int	iFrame;
+    pub frame: i32,
+
+    /// float iFrameRate;
+    pub framerate: f32,
+
+    /// vec4 iMouse;
+    pub mouse: [f32; 4],
+
+    /// vec4 iDate;
+    pub date: [f32; 4],
+}
+
 /// struct to represent a single channel render pipeline
 pub struct ChannelRenderer {
     /// it's pipeline
@@ -68,7 +94,7 @@ pub struct Renderer {
 
 impl Renderer {
     /// render a frame to the window
-    pub fn render(&mut self, width: u32, height: u32) {
+    pub fn render(&mut self, width: u32, height: u32, uniforms: Unifomrs) {
         if width != self.width || height != self.height {
             self.config.width = width;
             self.config.height = height;
@@ -86,11 +112,9 @@ impl Renderer {
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 
-        // update uniforms
-        let mut uniforms = [0 as u8; 64];
-
         // update it
-        self.queue.write_buffer(&self.uniforms, 0, &uniforms);
+        self.queue
+            .write_buffer(&self.uniforms, 0, bytemuck::cast_slice(&[uniforms]));
 
         // update buffers
         for (target, channel) in self.pipelines.iter() {
