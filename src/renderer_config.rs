@@ -63,7 +63,7 @@ impl Renderer {
             .create_shader_module(wgpu::include_wgsl!("full_screen_triangle.wgsl"));
 
         // track shader compiler errors
-        let mut shader_failed_compile = false;
+        let mut failed_to_config = false;
 
         // make all bind groups for each shader channel
         // these are what the shader will take in
@@ -72,6 +72,26 @@ impl Renderer {
             ShaderChannel::Shader { shader, inputs } => Some((n, shader, inputs)),
             _ => None,
         }) {
+            // check if all channels exist
+            if inputs
+                .values()
+                .map(|input| {
+                    if !self.textures.contains_key(input) {
+                        failed_to_config = true;
+                        println!(
+                            "Failed to config: input {} on {} doesn't exist",
+                            input, name
+                        );
+                        true
+                    } else {
+                        false
+                    }
+                })
+                .any(|x| x)
+            {
+                continue;
+            }
+
             // compile the shader
             let fragment_shader = compile_shader(&self.device, shader, &config.common, &inputs);
 
@@ -81,7 +101,7 @@ impl Renderer {
                 Err(x) => {
                     // report err
                     println!("Error: {}", x);
-                    shader_failed_compile = true;
+                    failed_to_config = true;
 
                     // stop
                     continue;
@@ -123,7 +143,7 @@ impl Renderer {
             let entries = inputs
                 .values()
                 .enumerate()
-                .map(|(i, x)| {
+                .flat_map(|(i, x)| {
                     // get the texture
                     // TODO: verify config
                     let texture = &self.textures[x].2;
@@ -140,7 +160,6 @@ impl Renderer {
                     // make the iterator
                     [(i * 2, sampler_res), (i * 2 + 1, texture_res)]
                 })
-                .flatten()
                 .map(|(i, x)| wgpu::BindGroupEntry {
                     binding: i as u32,
                     resource: x,
@@ -201,7 +220,7 @@ impl Renderer {
         }
 
         // if an error occurred, clear the pipelines and textures, as they aren't useful
-        if shader_failed_compile {
+        if failed_to_config {
             self.textures.clear();
             self.pipelines.clear();
         }

@@ -1,5 +1,6 @@
 use naga::front::glsl::{Options, Parser};
 use std::collections::BTreeMap;
+use std::error::Error;
 
 fn make_bindings(binding: usize, name: &str) -> String {
     // ideally this would use a proper AST to parse glsl, but that's too much work
@@ -48,7 +49,7 @@ pub fn compile_shader(
     let shader_code = format!(include_str!("template.glsl"), bindings, common, shader);
 
     // compile the shader
-    // TODO pretty print
+    // pretty print
     parser
         .parse(&options, &shader_code)
         .map(|x| {
@@ -57,5 +58,19 @@ pub fn compile_shader(
                 source: wgpu::ShaderSource::Naga(x),
             })
         })
-        .map_err(|x| format!("{:?}", x))
+        .map_err(|x| {
+            x.into_iter()
+                .map(|naga_err| {
+                    let mut err = naga_err.source();
+                    let mut mesg = String::new();
+
+                    while let Some(source) = err {
+                        mesg = format!("{}\n{}", mesg, source);
+                        err = Some(source);
+                    }
+
+                    mesg
+                })
+                .fold(String::new(), |acc, x| format!("{}\n{}", acc, x))
+        })
 }
