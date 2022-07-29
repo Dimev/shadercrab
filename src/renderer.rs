@@ -4,7 +4,7 @@ use winit::window::Window;
 /// uniforms representation
 #[repr(C)]
 #[derive(Default, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-pub struct Unifomrs {
+pub struct Uniforms {
     /// vec3 iResolution;
     pub resolution: [f32; 4],
 
@@ -94,7 +94,7 @@ pub struct Renderer {
 
 impl Renderer {
     /// render a frame to the window
-    pub fn render(&mut self, width: u32, height: u32, uniforms: Unifomrs) {
+    pub fn render(&mut self, width: u32, height: u32, uniforms: Uniforms) {
         if width != self.width || height != self.height {
             self.config.width = width;
             self.config.height = height;

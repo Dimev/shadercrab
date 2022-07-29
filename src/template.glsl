@@ -13,8 +13,6 @@ layout(binding = 0) uniform ShadercrabInternalInputs {{
 	vec4 iDate;
 }};
 
-// vertex input
-
 // output
 layout(location = 0) out vec4 shadercrab_internal_fragcol;
 
@@ -31,6 +29,6 @@ layout(location = 0) out vec4 shadercrab_internal_fragcol;
 void main() {{
 
 	// call shadertoy's mainImage
-	mainImage(shadercrab_internal_fragcol, vec2(0.0));
+	mainImage(shadercrab_internal_fragcol, gl_FragCoord.xy * 0.5 + 0.5);
 
 }}

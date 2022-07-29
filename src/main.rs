@@ -6,7 +6,7 @@ use winit::{
     event_loop::{ControlFlow, EventLoop},
 };
 
-use crate::renderer::Renderer;
+use crate::renderer::{Renderer, Uniforms};
 
 mod parse;
 mod renderer;
@@ -88,6 +88,10 @@ fn main() {
     // configure the renderer
     renderer.configure(&toy);
 
+    // uniforms to update
+    let mut mouse_pos = (0, 0);
+    let mut frame = 0;
+
     // start the event loop
     event_loop.run(move |event, _, control_flow| {
         // TODO: make this not consume CPU
@@ -119,7 +123,17 @@ fn main() {
                 renderer.render(
                     window.inner_size().width,
                     window.inner_size().height,
-                    Default::default(),
+                    Uniforms {
+                        frame,
+                        mouse: [mouse_pos.0 as f32, mouse_pos.1 as f32, 0.0, 0.0],
+                        resolution: [
+                            window.inner_size().width as f32,
+                            window.inner_size().height as f32,
+                            0.0,
+                            0.0,
+                        ],
+                        ..Default::default()
+                    },
                 );
                 window.request_redraw();
             }

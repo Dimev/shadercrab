@@ -93,14 +93,18 @@ impl Renderer {
             }
 
             // compile the shader
-            let fragment_shader = compile_shader(&self.device, shader, &config.common, &inputs);
+            let fragment_shader =
+                compile_shader(&self.device, name, shader, &config.common, &inputs);
 
             // if it failed, report the error
             let fragment_shader = match fragment_shader {
-                Ok(x) => x,
+                Ok(x) => {
+                    println!("compiling {} - V", name);
+                    x
+                }
                 Err(x) => {
                     // report err
-                    println!("Error: {}", x);
+                    println!("compiling {} - X:\n{}", name, x);
                     failed_to_config = true;
 
                     // stop

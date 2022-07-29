@@ -30,6 +30,7 @@ fn make_bindings(binding: usize, name: &str) -> String {
 
 pub fn compile_shader(
     device: &wgpu::Device,
+    name: &str,
     shader: &str,
     common: &str,
     inputs: &BTreeMap<String, String>,
@@ -61,16 +62,18 @@ pub fn compile_shader(
         .map_err(|x| {
             x.into_iter()
                 .map(|naga_err| {
-                    let mut err = naga_err.source();
-                    let mut mesg = String::new();
-
-                    while let Some(source) = err {
-                        mesg = format!("{}\n{}", mesg, source);
-                        err = Some(source);
-                    }
-
-                    mesg
+                    // TODO: report proper line number and shader file
+                    // maybe use codespan reporting here for better line colors?
+                    format!(
+                        "{}\n{}",
+                        format!("Error in shader {}: {}", name, naga_err.kind),
+                        format!(
+                            "{} | {}",
+                            naga_err.meta.location(&shader_code).line_number,
+                            &shader_code[naga_err.meta.to_range().unwrap()]
+                        ),
+                    )
                 })
-                .fold(String::new(), |acc, x| format!("{}\n{}", acc, x))
+                .fold(String::new(), |acc, x| format!("{}{}\n", acc, x))
         })
 }
