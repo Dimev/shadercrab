@@ -1,4 +1,4 @@
-use image::Rgba32FImage;
+use image::DynamicImage;
 use serde::Deserialize;
 use std::collections::{BTreeMap, HashMap};
 use std::path::*;
@@ -52,7 +52,7 @@ pub enum ShaderChannel {
         inputs: BTreeMap<String, String>,
     },
     Image {
-        image: Rgba32FImage,
+        image: DynamicImage,
     },
 }
 
@@ -205,9 +205,7 @@ impl Shadertoy {
                             .push((image_path.clone(), file_changed_time(&image_path)?));
 
                         // then construct the channel
-                        ShaderChannel::Image {
-                            image: image.to_rgba32f(),
-                        }
+                        ShaderChannel::Image { image }
                     }
                     _ => {
                         return Err(format!(

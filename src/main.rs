@@ -1,6 +1,6 @@
 use crate::parse::Shadertoy;
 use clap::Parser;
-use std::path::*;
+use std::{path::*, time::Instant};
 use winit::{
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
@@ -92,6 +92,9 @@ fn main() {
     let mut mouse_pos = (0, 0);
     let mut frame = 0;
 
+    // time
+    let start_time = Instant::now();
+
     // start the event loop
     event_loop.run(move |event, _, control_flow| {
         // TODO: make this not consume CPU
@@ -105,6 +108,9 @@ fn main() {
                 window.request_redraw();
             }
             Event::RedrawRequested(_) => {
+                // new frame
+                frame += 1;
+
                 // ckeck if the config changed
                 if toy.check_reload() {
                     println!("File changed, reconfiguring");
@@ -132,6 +138,7 @@ fn main() {
                             0.0,
                             0.0,
                         ],
+                        time: start_time.elapsed().as_secs_f32(),
                         ..Default::default()
                     },
                 );

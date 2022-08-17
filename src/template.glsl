@@ -13,6 +13,9 @@ layout(binding = 0) uniform ShadercrabInternalInputs {{
 	vec4 iDate;
 }};
 
+// input
+layout(location = 0) noperspective in vec2 shadercrab_internal_uv;
+
 // output
 layout(location = 0) out vec4 shadercrab_internal_fragcol;
 
@@ -29,6 +32,6 @@ layout(location = 0) out vec4 shadercrab_internal_fragcol;
 void main() {{
 
 	// call shadertoy's mainImage
-	mainImage(shadercrab_internal_fragcol, gl_FragCoord.xy * 0.5 + 0.5);
+	mainImage(shadercrab_internal_fragcol, shadercrab_internal_uv * iResolution.xy);
 
 }}

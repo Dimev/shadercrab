@@ -1,3 +1,6 @@
+use image::DynamicImage;
+use std::num::NonZeroU32;
+
 use crate::parse::{ShaderChannel, Shadertoy};
 use crate::renderer::{ChannelRenderer, Renderer};
 use crate::shader::compile_shader;
@@ -13,7 +16,7 @@ impl Renderer {
             // figure out the size
             let (width, height) = match channel {
                 ShaderChannel::Shader { .. } => (self.width, self.height),
-                ShaderChannel::Image { image } => image.dimensions(),
+                ShaderChannel::Image { image } => (image.width(), image.height()),
             };
 
             // make the texture and it's view
@@ -29,10 +32,30 @@ impl Renderer {
                 dimension: wgpu::TextureDimension::D2,
                 format: wgpu::TextureFormat::Rgba32Float, // TODO: use a different one if this is not available
                 usage: wgpu::TextureUsages::RENDER_ATTACHMENT
-                    | wgpu::TextureUsages::TEXTURE_BINDING,
+                    | wgpu::TextureUsages::TEXTURE_BINDING
+                    | wgpu::TextureUsages::COPY_DST,
             });
 
-            // TODO: write the data to the texture if available
+            // write the data to the texture if available
+            if let ShaderChannel::Image { image, .. } = channel {
+                let image_dynamic = DynamicImage::from(image.to_rgba32f());
+
+                // load the image
+                self.queue.write_texture(
+                    texture.as_image_copy(),
+                    image_dynamic.as_bytes(),
+                    wgpu::ImageDataLayout {
+                        offset: 0,
+                        bytes_per_row: NonZeroU32::new(image.width() * 4 * 4),
+                        rows_per_image: NonZeroU32::new(image.height()),
+                    },
+                    wgpu::Extent3d {
+                        width: image.width(),
+                        height: image.height(),
+                        depth_or_array_layers: 1,
+                    },
+                )
+            }
 
             // view
             let texture_view = texture.create_view(&wgpu::TextureViewDescriptor {
@@ -190,7 +213,7 @@ impl Renderer {
             let pipeline = self
                 .device
                 .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-                    label: None,
+                    label: Some(name),
                     layout: Some(&pipeline_layout),
                     vertex: wgpu::VertexState {
                         module: &vertex_shader,
