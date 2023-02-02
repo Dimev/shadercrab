@@ -1,79 +1,42 @@
-use naga::front::glsl::{Options, Parser};
-use std::collections::BTreeMap;
-use std::error::Error;
+//! Shader processing
 
-fn make_bindings(binding: usize, name: &str) -> String {
-    // ideally this would use a proper AST to parse glsl, but that's too much work
-    format!(
-        "{}\n{}\n{}\n",
-        // sampler, can't use sampler2D here because naga moment
-        format!(
-            "layout(set = {}, binding = {}) uniform sampler {}_shadercrab_internal_samp;",
-            1,
-            binding * 2,
-            name
-        ),
-        // texture
-        format!(
-            "layout(set = {}, binding = {}) uniform texture2D {}_shadercrab_internal_tex;",
-            1,
-            binding * 2 + 1,
-            name
-        ),
-        // define
-        format!(
-            "#define {} sampler2D({}_shadercrab_internal_tex, {}_shadercrab_internal_samp)",
-            name, name, name
-        )
-    )
+use naga::{
+    front::glsl::{Options, Parser},
+    ShaderStage,
+};
+
+use crate::{graphics::Graphics, channel::ChannelDescriptor};
+
+/// Compile a GLSL shader into a correct GLSL shader
+pub fn apply_template(shader: &str, channels: &[ChannelDescriptor]) -> String {
+    todo!()
 }
 
+/// Compile a GLSL shader to a wgpu ShaderModule
 pub fn compile_shader(
-    device: &wgpu::Device,
-    name: &str,
+    gfx: &Graphics,
     shader: &str,
-    common: &str,
-    inputs: &BTreeMap<String, String>,
-) -> Result<wgpu::ShaderModule, String> {
-    // get the parser
-    let mut parser = Parser::default();
-    let options = Options::from(naga::ShaderStage::Fragment);
+    fragment: bool,
+) -> Result<wgpu::ShaderModule, ()> {
+    // compile the shader with naga
+    let mut naga_parser = Parser::default();
+    let options = Options::from(if fragment {
+        ShaderStage::Fragment
+    } else {
+        ShaderStage::Vertex
+    });
 
-    // generate the right bindings
-    let bindings = inputs
-        .keys()
-        .enumerate()
-        .map(|(i, x)| make_bindings(i, x))
-        .fold(String::new(), |acc, x| acc + &x);
+    // compile it and report errors
+    let module = naga_parser.parse(&options, shader).map_err(|x| ())?;
 
-    // make the shader
-    let shader_code = format!(include_str!("template.glsl"), bindings, common, shader);
+    // make the shader source
+    let shader_source = wgpu::ShaderSource::Naga(std::borrow::Cow::Owned(module));
 
-    // compile the shader
-    // pretty print
-    parser
-        .parse(&options, &shader_code)
-        .map(|x| {
-            device.create_shader_module(wgpu::ShaderModuleDescriptor {
-                label: None,
-                source: wgpu::ShaderSource::Naga(x),
-            })
-        })
-        .map_err(|x| {
-            x.into_iter()
-                .map(|naga_err| {
-                    // TODO: report proper line number and shader file
-                    // maybe use codespan reporting here for better line colors?
-                    format!(
-                        "{}\n{}",
-                        format!("Error in shader {}: {}", name, naga_err.kind),
-                        format!(
-                            "{} | {}",
-                            naga_err.meta.location(&shader_code).line_number,
-                            &shader_code[naga_err.meta.to_range().unwrap()]
-                        ),
-                    )
-                })
-                .fold(String::new(), |acc, x| format!("{}{}\n", acc, x))
-        })
+    // and shader
+    Ok(gfx
+        .device
+        .create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: None,
+            source: shader_source,
+        }))
 }
