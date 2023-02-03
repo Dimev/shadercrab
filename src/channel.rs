@@ -28,6 +28,72 @@ pub struct ChannelTexture {
     sampler: wgpu::Sampler,
 }
 
+impl ChannelTexture {
+    pub fn new(gfx: &Graphics, descriptor: &ChannelDescriptor, width: u32, height: u32) -> Self {
+        // get the texture size
+        let size = if descriptor.format == ChannelFormat::Channel {
+            wgpu::Extent3d {
+                width,
+                height,
+                depth_or_array_layers: 0,
+            }
+        } else {
+            wgpu::Extent3d {
+                width: descriptor.width,
+                height: descriptor.height,
+                depth_or_array_layers: 0,
+            }
+        };
+
+        // create the texture
+        let texture = gfx.device.create_texture(&wgpu::TextureDescriptor {
+            label: None,
+            size,
+            mip_level_count: size.max_mips(wgpu::TextureDimension::D2),
+            sample_count: 0,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba32Float,
+            view_formats: &[wgpu::TextureFormat::Rgba32Float],
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+        });
+
+        // it's view
+        let view = texture.create_view(&wgpu::TextureViewDescriptor {
+            label: None,
+            format: None,
+            dimension: None,
+            aspect: wgpu::TextureAspect::All,
+            base_mip_level: 0,
+            base_array_layer: 0,
+            mip_level_count: NonZeroU32::new(size.max_mips(wgpu::TextureDimension::D2)),
+            array_layer_count: None,
+        });
+
+        // and sampler
+        let sampler = gfx.device.create_sampler(&wgpu::SamplerDescriptor {
+            label: None,
+            address_mode_u: wgpu::AddressMode::Repeat,
+            address_mode_v: wgpu::AddressMode::Repeat,
+            address_mode_w: wgpu::AddressMode::Repeat,
+            mag_filter: wgpu::FilterMode::Nearest,
+            min_filter: wgpu::FilterMode::Nearest,
+            mipmap_filter: wgpu::FilterMode::Nearest,
+            lod_min_clamp: 0.0,
+            lod_max_clamp: size.max_mips(wgpu::TextureDimension::D2) as f32,
+            compare: None,
+            anisotropy_clamp: None,
+            border_color: None,
+        });
+
+        Self {
+            texture,
+            view,
+            sampler,
+            format: descriptor.format,
+        }
+    }
+}
+
 /// A single channel
 pub struct Channel {
     pipeline: wgpu::RenderPipeline,
@@ -60,70 +126,10 @@ impl Channel {
         let mut textures = HashMap::new();
 
         for channel in channels {
-            // get the texture size
-            let size = if channel.format == ChannelFormat::Channel {
-                wgpu::Extent3d {
-                    width,
-                    height,
-                    depth_or_array_layers: 0,
-                }
-            } else {
-                wgpu::Extent3d {
-                    width: channel.width,
-                    height: channel.height,
-                    depth_or_array_layers: 0,
-                }
-            };
-
-            // create the texture
-            let texture = gfx.device.create_texture(&wgpu::TextureDescriptor {
-                label: None,
-                size,
-                mip_level_count: size.max_mips(wgpu::TextureDimension::D2),
-                sample_count: 0,
-                dimension: wgpu::TextureDimension::D2,
-                format: wgpu::TextureFormat::Rgba32Float,
-                view_formats: &[wgpu::TextureFormat::Rgba32Float],
-                usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
-            });
-
-            // it's view
-            let view = texture.create_view(&wgpu::TextureViewDescriptor {
-                label: None,
-                format: None,
-                dimension: None,
-                aspect: wgpu::TextureAspect::All,
-                base_mip_level: 0,
-                base_array_layer: 0,
-                mip_level_count: NonZeroU32::new(size.max_mips(wgpu::TextureDimension::D2)),
-                array_layer_count: None,
-            });
-
-            // and sampler
-            let sampler = gfx.device.create_sampler(&wgpu::SamplerDescriptor {
-                label: None,
-                address_mode_u: wgpu::AddressMode::Repeat,
-                address_mode_v: wgpu::AddressMode::Repeat,
-                address_mode_w: wgpu::AddressMode::Repeat,
-                mag_filter: wgpu::FilterMode::Nearest,
-                min_filter: wgpu::FilterMode::Nearest,
-                mipmap_filter: wgpu::FilterMode::Nearest,
-                lod_min_clamp: 0.0,
-                lod_max_clamp: size.max_mips(wgpu::TextureDimension::D2) as f32,
-                compare: None,
-                anisotropy_clamp: None,
-                border_color: None,
-            });
-
-            // insert it
+            // create it
             textures.insert(
                 channel.name.to_string(),
-                ChannelTexture {
-                    texture,
-                    view,
-                    sampler,
-                    format: channel.format,
-                },
+                ChannelTexture::new(gfx, channel, width, height),
             );
         }
 
