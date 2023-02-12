@@ -1,6 +1,6 @@
 //! shadertoy's iChannel equivalent
 
-use std::{collections::HashMap, num::NonZeroU32};
+use std::{collections::BTreeMap, num::NonZeroU32};
 
 use crate::{graphics::Graphics, uniforms::Uniforms};
 
@@ -92,17 +92,59 @@ impl ChannelTexture {
             format: descriptor.format,
         }
     }
+
+    /// Get the bind group layout entry for the texture
+    pub fn get_texture_layout(&self, binding: u32) -> wgpu::BindGroupLayoutEntry {
+        wgpu::BindGroupLayoutEntry {
+            binding,
+            visibility: wgpu::ShaderStages::FRAGMENT,
+            ty: wgpu::BindingType::Texture {
+                // TODO: filter based on if it's allowed
+                sample_type: wgpu::TextureSampleType::Float { filterable: false },
+                view_dimension: wgpu::TextureViewDimension::D2,
+                multisampled: false,
+            },
+            count: None,
+        }
+    }
+
+    /// Get the bind group layout entry for the texture sampler
+    pub fn get_sampler_layout(&self, binding: u32) -> wgpu::BindGroupLayoutEntry {
+        wgpu::BindGroupLayoutEntry {
+            binding,
+            visibility: wgpu::ShaderStages::FRAGMENT,
+            ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::NonFiltering),
+            count: None,
+        }
+    }
+
+    /// Get the bind group entry of the texture
+    pub fn get_texture_entry(&self, binding: u32) -> wgpu::BindGroupEntry {
+        wgpu::BindGroupEntry {
+            binding,
+            resource: wgpu::BindingResource::TextureView(&self.view),
+        }
+    }
+
+    /// Get the bind group entry of the sampler
+    pub fn get_sampler_entry(&self, binding: u32) -> wgpu::BindGroupEntry {
+        wgpu::BindGroupEntry {
+            binding,
+            resource: wgpu::BindingResource::Sampler(&self.sampler),
+        }
+    }
 }
 
 /// A single channel
 pub struct Channel {
     pipeline: wgpu::RenderPipeline,
     mipmap_pipeline: wgpu::RenderPipeline,
-    bind_group: wgpu::BindGroup,
+    texture_bind_group: wgpu::BindGroup,
+    uniform_bind_group: wgpu::BindGroup,
     uniform_buffer: wgpu::Buffer,
     target: wgpu::Texture,
     target_view: wgpu::TextureView,
-    textures: HashMap<String, ChannelTexture>,
+    textures: BTreeMap<String, ChannelTexture>,
 }
 
 /// Describes what will be in a channel
@@ -123,7 +165,7 @@ impl Channel {
         height: u32,
     ) -> Self {
         // create all channels
-        let mut textures = HashMap::new();
+        let mut textures = BTreeMap::new();
 
         for channel in channels {
             // create it
@@ -134,11 +176,94 @@ impl Channel {
         }
 
         // create the bind groups
+        let texture_bind_group_layout =
+            gfx.device
+                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    label: None,
+                    entries: &textures
+                        .values()
+                        .enumerate()
+                        .map(|(idx, x)| {
+                            [
+                                x.get_texture_layout(idx as u32 * 2),
+                                x.get_sampler_layout(idx as u32 * 2 + 1),
+                            ]
+                        })
+                        .flatten()
+                        .collect::<Vec<_>>(),
+                });
+
+        let texture_bind_group = gfx.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: None,
+            layout: &texture_bind_group_layout,
+            entries: &textures
+                .values()
+                .enumerate()
+                .map(|(idx, x)| {
+                    [
+                        x.get_texture_entry(idx as u32 * 2),
+                        x.get_sampler_entry(idx as u32 * 2 + 1),
+                    ]
+                })
+                .flatten()
+                .collect::<Vec<_>>(),
+        });
+
+        // uniform buffer and bind group
+        // TODO!
+
+        // create the shaders
 
         // create the pipeline
+        let pipeline_layout = gfx
+            .device
+            .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: None,
+                bind_group_layouts: &[&texture_bind_group_layout],
+                push_constant_ranges: &[],
+            });
+
+        let pipeline = gfx
+            .device
+            .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                label: None,
+                layout: Some(&pipeline_layout),
+                vertex: wgpu::VertexState {
+                    module: todo!(),
+                    entry_point: "main",
+                    buffers: &[],
+                },
+                primitive: wgpu::PrimitiveState {
+                    topology: wgpu::PrimitiveTopology::TriangleList,
+                    strip_index_format: None,
+                    front_face: wgpu::FrontFace::Cw,
+                    cull_mode: None,
+                    unclipped_depth: false,
+                    polygon_mode: wgpu::PolygonMode::Fill,
+                    conservative: false,
+                },
+                depth_stencil: None,
+                multisample: wgpu::MultisampleState {
+                    count: 1,
+                    mask: !0,
+                    alpha_to_coverage_enabled: false,
+                },
+                fragment: Some(wgpu::FragmentState {
+                    module: todo!(),
+                    entry_point: "main",
+                    targets: &[Some(wgpu::ColorTargetState {
+                        format: wgpu::TextureFormat::Rgba32Float,
+                        blend: None,
+                        write_mask: wgpu::ColorWrites::all(),
+                    })],
+                }),
+                multiview: None,
+            });
 
         // create the mipmapping pipeline
+        // TODO!
 
+        // return ourselves
         todo!()
     }
 
